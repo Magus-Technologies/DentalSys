@@ -1,10 +1,36 @@
 <?php
 // ── CONFIGURACIÓN ─────────────────────────────────────
-define('DB_HOST',    'localhost');
-define('DB_NAME',    'dental');
-define('DB_USER',    'root');
-define('DB_PASS',    'c4p1cu4$$');          // ← cambiar en producción
-define('BASE_URL',   '/dental');
+// Auto-detecta entorno (LOCAL vs PRODUCCIÓN) por hostname.
+// No hace falta cambiar nada al subir al servidor.
+
+$__host = $_SERVER['HTTP_HOST'] ?? gethostname();
+$__isLocal = (
+    str_contains($__host, 'localhost') ||
+    str_contains($__host, '127.0.0.1') ||
+    str_contains($__host, '.test')     ||
+    str_contains($__host, '.local')
+);
+
+if ($__isLocal) {
+    // ════════ LOCAL (Laragon) ════════
+    define('DB_HOST',  'localhost');
+    define('DB_NAME',  'dental');
+    define('DB_USER',  'root');
+    define('DB_PASS',  '');
+    define('BASE_URL', '/DentalSys');
+    define('APP_ENV',  'development');
+    define('MIGRATIONS_TOKEN', 'dev_local_token_no_importa');
+} else {
+    // ════════ PRODUCCIÓN (magus-ecommerce.com/dental) ════════
+    define('DB_HOST',  'localhost');
+    define('DB_NAME',  'dental');
+    define('DB_USER',  'root');
+    define('DB_PASS',  'c4p1cu4$$');
+    define('BASE_URL', '/dental');
+    define('APP_ENV',  'production');
+    define('MIGRATIONS_TOKEN', 'CAMBIAR_POR_TOKEN_LARGO_Y_ALEATORIO');
+}
+
 define('UPLOAD_PATH', __DIR__ . '/../uploads/');
 define('APP_NAME',   'DentalSys');
 date_default_timezone_set('America/Lima');

@@ -1,7 +1,9 @@
 <?php
+/**
+ * pagos.php — Caja diaria y cobros (recibos internos).
+ * La emisión electrónica (boleta/factura SUNAT) vive en pages/facturacion.php.
+ */
 require_once __DIR__.'/../includes/config.php';
-require_once __DIR__.'/../includes/config_sunat.php';
-require_once __DIR__.'/../includes/sunat/SunatService.php';
 requiereLogin();
 $accion=$_GET['accion']??'lista'; $id=(int)($_GET['id']??0);
 $pac_id=(int)($_GET['paciente_id']??0); $cita_id=(int)($_GET['cita_id']??0);
@@ -18,41 +20,19 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   $cod=genCodigo('PAG','pagos');
   $sub=(float)$_POST['subtotal']; $desc=(float)($_POST['descuento']??0); $tot=$sub-$desc;
 
-  // ── Tipo de comprobante + serie/numero (solo factura/boleta van a SUNAT) ──
-  $tipo  = $_POST['tipo_comprobante'] ?? 'ticket';
-  $serie = null; $numero = null;
-  if ($tipo === 'factura')      { $serie = SUNAT_SERIE_FACTURA; $numero = SunatService::siguienteNumero(db(), $serie); }
-  elseif ($tipo === 'boleta')   { $serie = SUNAT_SERIE_BOLETA;  $numero = SunatService::siguienteNumero(db(), $serie); }
-
-  db()->prepare("INSERT INTO pagos(codigo,paciente_id,caja_id,plan_id,cita_id,fecha,subtotal,descuento,total,metodo,referencia,tipo_comprobante,serie,numero,estado,notas,created_by)VALUES(?,?,?,?,?,NOW(),?,?,?,?,?,?,?,?,?,?,?)")
-   ->execute([$cod,(int)$_POST['paciente_id'],$caja,$_POST['plan_id']?:null,$_POST['cita_id']?:null,$sub,$desc,$tot,$_POST['metodo'],$_POST['referencia']??'',$tipo,$serie,$numero,$_POST['estado']??'pagado',trim($_POST['notas']??''),$_SESSION['uid']]);
+  db()->prepare("INSERT INTO pagos(codigo,paciente_id,caja_id,plan_id,cita_id,fecha,subtotal,descuento,total,metodo,referencia,tipo_comprobante,estado,notas,created_by)VALUES(?,?,?,?,?,NOW(),?,?,?,?,?,'ticket',?,?,?)")
+   ->execute([$cod,(int)$_POST['paciente_id'],$caja,$_POST['plan_id']?:null,$_POST['cita_id']?:null,$sub,$desc,$tot,$_POST['metodo'],$_POST['referencia']??'',$_POST['estado']??'pagado',trim($_POST['notas']??''),$_SESSION['uid']]);
   $pid=db()->lastInsertId();
-  // Detalles
   $concs=$_POST['concepto']??[]; $cants=$_POST['cantidad']??[]; $precios=$_POST['precio']??[];
   foreach($concs as $i=>$con){ if(!trim($con)) continue;
    $cant=(float)($cants[$i]??1); $pr=(float)($precios[$i]??0);
    db()->prepare("INSERT INTO pago_detalles(pago_id,concepto,cantidad,precio,subtotal)VALUES(?,?,?,?,?)")->execute([$pid,trim($con),$cant,$pr,$cant*$pr]);
   }
   auditar('CREAR_PAGO','pagos',$pid);
-
-  // ── Generar XML SUNAT (solo factura/boleta) — NO se envía aún ──
-  $msg_extra = '';
-  if (in_array($tipo, ['factura','boleta'], true)) {
-   $r = (new SunatService(db()))->generarXml((int)$pid);
-   $msg_extra = $r['ok'] ? ' · XML generado, listo para enviar a SUNAT.' : ' · XML falló: '.$r['mensaje'];
-  }
-
-  flash('ok',"Pago registrado: $cod — ".mon($tot).$msg_extra);
+  flash('ok',"Pago registrado: $cod — ".mon($tot));
   go("pages/pagos.php?accion=ver&id=$pid");
  }
 
- // ── ENVIAR A SUNAT (manual) ──
- if($ap==='enviar_sunat'){
-  $pid=(int)$_POST['pago_id'];
-  $r=(new SunatService(db()))->enviarSunat($pid);
-  flash($r['ok']?'ok':'error', ($r['ok']?'SUNAT aceptó: ':'SUNAT rechazó: ').$r['mensaje']);
-  go("pages/pagos.php?accion=ver&id=$pid");
- }
  if($ap==='apertura_caja'){
   $mi=(float)$_POST['monto_inicial'];
   db()->prepare("INSERT INTO cajas(usuario_id,fecha_apertura,monto_inicial,estado)VALUES(?,NOW(),?,'abierta')")->execute([$_SESSION['uid'],$mi]);
@@ -68,28 +48,6 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   db()->prepare("UPDATE pagos SET estado='anulado' WHERE id=?")->execute([$pid]);
   auditar('ANULAR_PAGO','pagos',$pid); flash('warn','Pago anulado.'); go("pages/pagos.php?accion=ver&id=$pid");
  }
-}
-
-// ─── DESCARGAS XML / CDR (antes de imprimir HTML) ──────────────
-if (in_array($accion, ['xml','cdr'], true) && $id) {
- $st = db()->prepare("SELECT tipo_comprobante,serie,numero,sunat_xml,sunat_cdr FROM pagos WHERE id=?");
- $st->execute([$id]);
- $v = $st->fetch();
- if (!$v) { http_response_code(404); echo 'Pago no encontrado.'; exit; }
- if (!in_array($v['tipo_comprobante'], ['factura','boleta'], true)) { http_response_code(400); echo 'Este pago no se emite a SUNAT.'; exit; }
- $base = SunatService::nombreArchivo($v);
- if ($accion === 'xml') {
-  if (empty($v['sunat_xml'])) { http_response_code(404); echo 'Este pago no tiene XML generado.'; exit; }
-  header('Content-Type: application/xml; charset=utf-8');
-  if (isset($_GET['dl'])) header('Content-Disposition: attachment; filename="'.$base.'.xml"');
-  echo $v['sunat_xml']; exit;
- }
- // cdr → base64 → zip
- if (empty($v['sunat_cdr'])) { http_response_code(404); echo 'Este pago aún no tiene CDR.'; exit; }
- $bin = base64_decode($v['sunat_cdr'], true);
- header('Content-Type: application/zip');
- header('Content-Disposition: attachment; filename="R-'.$base.'.zip"');
- echo $bin !== false ? $bin : $v['sunat_cdr']; exit;
 }
 
 // CAJA ACTUAL
@@ -145,8 +103,6 @@ if($accion==='lista'){
  <tbody>
  <?php foreach($lista as $pg):
   $ec=['pagado'=>'bg','pendiente'=>'ba','anulado'=>'br'];
-  $se=$pg['sunat_estado']??null;
-  $sc=$se==='aceptado'?'bg':($se==='rechazado'?'br':($se==='pendiente'?'ba':'bgr'));
   $tc=$pg['tipo_comprobante']??'ticket';
  ?><tr>
   <td class="mon" style="color:var(--c);font-size:11px"><?=e($pg['codigo'])?>
@@ -156,28 +112,13 @@ if($accion==='lista'){
   <td><small><?=fDT($pg['fecha'])?></small></td>
   <td class="mon fw-bold"><?=mon((float)$pg['total'])?></td>
   <td><span class="badge bgr"><?=strtoupper($pg['metodo'])?></span></td>
+  <td><span class="badge <?=$ec[$pg['estado']]?>"><?=$pg['estado']?></span></td>
   <td>
-   <span class="badge <?=$ec[$pg['estado']]?>"><?=$pg['estado']?></span>
    <?php if(in_array($tc,['factura','boleta'],true)): ?>
-    <br><span class="badge <?=$sc?>" style="font-size:9px;margin-top:2px">SUNAT: <?=$se?strtoupper($se):'—'?></span>
-   <?php endif; ?>
-  </td>
-  <td>
-   <div class="d-flex gap-1">
+    <a href="<?=BASE_URL?>/pages/facturacion.php?accion=ver&id=<?=$pg['id']?>" class="btn btn-dk btn-ico" title="Ver comprobante"><i class="bi bi-receipt"></i></a>
+   <?php else: ?>
     <a href="?accion=ver&id=<?=$pg['id']?>" class="btn btn-dk btn-ico" title="Ver"><i class="bi bi-eye"></i></a>
-    <?php if(!empty($pg['sunat_xml'])): ?>
-     <a href="?accion=xml&id=<?=$pg['id']?>" target="_blank" class="btn btn-dk btn-ico" title="Ver XML"><i class="bi bi-file-earmark-code"></i></a>
-    <?php endif; ?>
-    <?php if(!empty($pg['sunat_xml']) && $se !== 'aceptado'): ?>
-     <form method="POST" onsubmit="return confirm('¿Enviar a SUNAT?')" style="display:inline">
-      <input type="hidden" name="accion" value="enviar_sunat"><input type="hidden" name="pago_id" value="<?=$pg['id']?>">
-      <button type="submit" class="btn btn-primary btn-ico" title="Enviar a SUNAT"><i class="bi bi-send"></i></button>
-     </form>
-    <?php endif; ?>
-    <?php if(!empty($pg['sunat_cdr'])): ?>
-     <a href="?accion=cdr&id=<?=$pg['id']?>" class="btn btn-ok btn-ico" title="Descargar CDR"><i class="bi bi-download"></i></a>
-    <?php endif; ?>
-   </div>
+   <?php endif; ?>
   </td>
  </tr><?php endforeach; if(!$lista): ?>
  <tr><td colspan="7" class="text-center py-4" style="color:var(--t2)">No hay cobros para este período</td></tr>
@@ -268,48 +209,16 @@ if($accion==='lista'){
    </div>
   </div>
 
-  <?php if(in_array($pago['tipo_comprobante']??'', ['factura','boleta'], true)):
-   $se=$pago['sunat_estado']??null;
-   $cl=$se==='aceptado'?'bg':($se==='rechazado'?'br':($se==='pendiente'?'ba':'bgr'));
-   $lb=$se?strtoupper($se):'SIN EMITIR';
-  ?>
+  <?php if(in_array($pago['tipo_comprobante']??'', ['factura','boleta'], true)): ?>
   <div class="card">
-   <div class="card-header"><span><i class="bi bi-bank me-1"></i>SUNAT</span><span class="badge <?=$cl?>"><?=$lb?></span></div>
+   <div class="card-header"><span><i class="bi bi-bank me-1"></i>Comprobante electrónico</span></div>
    <div class="p-3">
     <div class="mb-2" style="font-size:12px;color:var(--t2)">
-     <strong><?=strtoupper($pago['tipo_comprobante'])?></strong>
-     <?=e($pago['serie']??'')?>-<?=str_pad((string)($pago['numero']??0),8,'0',STR_PAD_LEFT)?>
+     Este pago tiene comprobante electrónico asociado.
     </div>
-    <?php if(!empty($pago['sunat_mensaje'])): ?>
-     <div class="mb-2" style="font-size:11px;color:var(--t2)"><?=e($pago['sunat_mensaje'])?></div>
-    <?php endif; ?>
-    <?php if(!empty($pago['sunat_hash'])): ?>
-     <div class="mb-3" style="font-size:10px;color:var(--t2);word-break:break-all"><strong>Hash:</strong> <?=e($pago['sunat_hash'])?></div>
-    <?php endif; ?>
-
-    <div class="d-grid gap-2">
-     <?php if(!empty($pago['sunat_xml'])): ?>
-      <div class="d-flex gap-2">
-       <a href="?accion=xml&id=<?=$id?>" target="_blank" class="btn btn-dk btn-sm flex-fill"><i class="bi bi-file-earmark-code me-1"></i>Ver XML</a>
-       <a href="?accion=xml&id=<?=$id?>&dl=1" class="btn btn-dk btn-sm"><i class="bi bi-download"></i></a>
-      </div>
-     <?php endif; ?>
-
-     <?php if(!empty($pago['sunat_xml']) && $se !== 'aceptado'): ?>
-      <form method="POST" onsubmit="return confirm('¿Enviar este comprobante a SUNAT?')">
-       <input type="hidden" name="accion" value="enviar_sunat"><input type="hidden" name="pago_id" value="<?=$id?>">
-       <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-send me-1"></i>Enviar a SUNAT</button>
-      </form>
-     <?php endif; ?>
-
-     <?php if(!empty($pago['sunat_cdr'])): ?>
-      <a href="?accion=cdr&id=<?=$id?>" class="btn btn-ok btn-sm"><i class="bi bi-download me-1"></i>Descargar CDR</a>
-     <?php endif; ?>
-
-     <?php if(empty($pago['sunat_xml'])): ?>
-      <div style="font-size:11px;color:var(--t2)">Este pago no tiene XML generado todavía.</div>
-     <?php endif; ?>
-    </div>
+    <a href="<?=BASE_URL?>/pages/facturacion.php?accion=ver&id=<?=$id?>" class="btn btn-primary btn-sm w-100">
+     <i class="bi bi-receipt-cutoff me-1"></i>Ver en Facturación
+    </a>
    </div>
   </div>
   <?php endif; ?>
@@ -379,25 +288,24 @@ if($accion==='lista'){
  <!-- Método de pago -->
  <div class="card mb-4"><div class="card-header"><span><i class="bi bi-credit-card me-1"></i>Método de pago</span></div>
  <div class="p-4"><div class="row g-3">
-  <div class="col-12 col-md-6"><label class="form-label">Tipo de comprobante *</label>
-  <select name="tipo_comprobante" class="form-select" required>
-   <option value="ticket">🧾 Recibo interno (no SUNAT)</option>
-   <option value="boleta">📄 Boleta electrónica</option>
-   <option value="factura">📑 Factura electrónica (requiere RUC)</option>
-  </select></div>
   <div class="col-12 col-md-6"><label class="form-label">Método *</label>
   <select name="metodo" class="form-select" required>
    <option value="efectivo">💵 Efectivo</option><option value="yape">📱 Yape</option>
    <option value="plin">📱 Plin</option><option value="tarjeta_debito">💳 Tarjeta débito</option>
    <option value="tarjeta_credito">💳 Tarjeta crédito</option><option value="transferencia">🔄 Transferencia</option><option value="otro">📋 Otro</option>
   </select></div>
-  <div class="col-12 col-md-6"><label class="form-label">N° operación / Referencia</label><input type="text" name="referencia" class="form-control" placeholder="Número de operación"></div>
   <div class="col-12 col-md-6"><label class="form-label">Estado</label>
   <select name="estado" class="form-select">
    <option value="pagado">✅ Pagado</option><option value="pendiente">⏳ Pendiente</option>
   </select></div>
+  <div class="col-12 col-md-6"><label class="form-label">N° operación / Referencia</label><input type="text" name="referencia" class="form-control" placeholder="Número de operación"></div>
   <div class="col-12"><label class="form-label">Notas</label><textarea name="notas" class="form-control" rows="2"></textarea></div>
  </div></div></div>
+ <div class="alert alert-info" style="font-size:12px">
+  <i class="bi bi-info-circle me-1"></i>
+  Este registro genera un <strong>recibo interno</strong> (sin SUNAT). Para emitir <strong>boleta o factura</strong>, ve a
+  <a href="<?=BASE_URL?>/pages/facturacion.php?accion=nueva<?=$pac_pre?'&paciente_id='.$pac_pre['id']:''?>" style="color:var(--c);font-weight:700">Facturación</a>.
+ </div>
  <div class="d-flex gap-2 justify-content-end">
   <a href="?" class="btn btn-dk">Cancelar</a>
   <button type="submit" class="btn btn-primary px-4"><i class="bi bi-cash-coin me-2"></i>Registrar pago</button>

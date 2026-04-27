@@ -174,6 +174,7 @@ a:not([class]){color:var(--c)}
   <a href="<?=BASE_URL?>/pages/tratamientos.php" class="<?=$p==='trat'?'act':''?>"><i class="bi bi-clipboard2-pulse-fill"></i>Tratamientos</a>
   <?php if(esRol('admin','contador','recepcion')): ?>
   <a href="<?=BASE_URL?>/pages/pagos.php" class="<?=$p==='pagos'?'act':''?>"><i class="bi bi-cash-coin"></i>Caja y Pagos</a>
+  <a href="<?=BASE_URL?>/pages/facturacion.php" class="<?=$p==='fact'?'act':''?>"><i class="bi bi-receipt-cutoff"></i>Facturación</a>
   <?php endif; ?>
   <a href="<?=BASE_URL?>/pages/inventario.php" class="<?=$p==='inv'?'act':''?>">
    <i class="bi bi-box-seam-fill"></i>Inventario
