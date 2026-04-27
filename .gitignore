@@ -1,0 +1,64 @@
+# ============================================================
+# DentalSys — .gitignore
+# ============================================================
+
+# ---------- Configuración sensible ----------
+includes/config_tokens.php
+.env
+.env.*
+!.env.example
+
+# ---------- Base de datos / dumps ----------
+*.sql
+*.sql.gz
+*.sqlite
+*.sqlite3
+dental.sql
+# … pero las migraciones SÍ se versionan
+!migrations/*.sql
+
+# ---------- Uploads ----------
+uploads/*
+!uploads/.gitkeep
+
+# ---------- Logs ----------
+*.log
+logs/
+error_log
+debug.log
+
+# ---------- Temporales ----------
+hash.php
+test.php
+phpinfo.php
+info.php
+tmp/
+temp/
+cache/
+*.bak
+*.swp
+*.tmp
+
+# ---------- Dependencias ----------
+/vendor/
+/node_modules/
+composer.lock
+package-lock.json
+yarn.lock
+
+# ---------- IDE ----------
+.vscode/
+.idea/
+.history/
+
+# ---------- SO ----------
+Thumbs.db
+.DS_Store
+Desktop.ini
+
+# ---------- Backups ----------
+*.zip
+*.rar
+*.7z
+backup/
+backups/
