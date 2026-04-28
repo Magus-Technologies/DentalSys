@@ -289,8 +289,14 @@ if ($fmt === 'ticket') {
  </tbody>
 </table>
 <div class="sep"></div>
+<?php
+ // Precios siempre incluyen IGV — desglose en todos los tipos
+ $tkGrav = round((float)$pago['total'] / 1.18, 2);
+ $tkIgv  = round((float)$pago['total'] - $tkGrav, 2);
+?>
 <table class="tot">
- <tr><td>Subtotal</td><td class="r"><?=e($emp_mon)?> <?=number_format((float)$pago['subtotal'],2)?></td></tr>
+ <tr><td>Op. Gravada</td><td class="r"><?=e($emp_mon)?> <?=number_format($tkGrav,2)?></td></tr>
+ <tr><td>IGV (18%)</td><td class="r"><?=e($emp_mon)?> <?=number_format($tkIgv,2)?></td></tr>
  <?php if((float)$pago['descuento']>0): ?>
  <tr><td>Descuento</td><td class="r">-<?=e($emp_mon)?> <?=number_format((float)$pago['descuento'],2)?></td></tr>
  <?php endif; ?>
@@ -313,8 +319,9 @@ if ($fmt === 'ticket') {
 </body></html><?php
 } else {
     // ─── A4 (estilo ilisava: tabla con bordes reales, cajas profesionales) ─
-    $totalGrav    = ($tc === 'nota_venta') ? (float)$pago['total'] : round((float)$pago['total'] / 1.18, 2);
-    $igvCalc      = ($tc === 'nota_venta') ? 0 : round((float)$pago['total'] - $totalGrav, 2);
+    // Precios siempre incluyen IGV — desglose en todos los tipos
+    $totalGrav    = round((float)$pago['total'] / 1.18, 2);
+    $igvCalc      = round((float)$pago['total'] - $totalGrav, 2);
     ?><!doctype html>
 <html lang="es"><head>
 <meta charset="utf-8">
@@ -444,8 +451,8 @@ if ($fmt === 'ticket') {
    <th width="9%">CANT.</th>
    <th width="14%">CÓDIGO</th>
    <th width="46%" style="text-align:left;padding-left:5px">DESCRIPCIÓN</th>
-   <th width="12%">P. UNIT.</th>
-   <th width="14%">TOTAL</th>
+   <th width="12%">P. UNIT.<br><span style="font-size:6.5pt;font-weight:normal">(c/IGV)</span></th>
+   <th width="14%">IMPORTE<br><span style="font-size:6.5pt;font-weight:normal">(c/IGV)</span></th>
   </tr>
  </thead>
  <tbody>
@@ -495,17 +502,13 @@ if ($fmt === 'ticket') {
   </tr></table>
  </td>
  <td style="width:45%">
-  <!-- Caja superior: desglose -->
+  <!-- Caja superior: desglose IGV (precios incluyen IGV) -->
   <table class="totals-up">
-   <?php if($tc !== 'nota_venta'): ?>
    <tr><td class="lbl">OP. GRAVADAS: <?=e($emp_mon)?></td><td class="val"><?=number_format($totalGrav,2)?></td></tr>
    <tr><td class="lbl">SUB TOTAL: <?=e($emp_mon)?></td><td class="val"><?=number_format($totalGrav,2)?></td></tr>
    <tr><td class="lbl">IGV (18%): <?=e($emp_mon)?></td><td class="val"><?=number_format($igvCalc,2)?></td></tr>
-   <?php else: ?>
-   <tr><td class="lbl">SUB TOTAL: <?=e($emp_mon)?></td><td class="val"><?=number_format((float)$pago['subtotal'],2)?></td></tr>
    <?php if((float)$pago['descuento']>0): ?>
    <tr><td class="lbl">DESCUENTO: <?=e($emp_mon)?></td><td class="val">-<?=number_format((float)$pago['descuento'],2)?></td></tr>
-   <?php endif; ?>
    <?php endif; ?>
   </table>
   <!-- Caja inferior: TOTAL -->

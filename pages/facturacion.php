@@ -505,7 +505,8 @@ if ($accion==='lista') {
  $pacs = db()->query("SELECT id,codigo,nombres,apellido_paterno,dni,ruc FROM pacientes WHERE activo=1 ORDER BY apellido_paterno LIMIT 500")->fetchAll();
  $pac_pre = null;
  if ($pac_id) { $s=db()->prepare("SELECT * FROM pacientes WHERE id=?"); $s->execute([$pac_id]); $pac_pre=$s->fetch(); }
- $invs = db()->query("SELECT id,codigo,nombre,unidad,stock_actual,precio_costo FROM inventario WHERE activo=1 AND stock_actual>0 ORDER BY nombre LIMIT 800")->fetchAll();
+ $invs  = db()->query("SELECT id,codigo,nombre,unidad,stock_actual,precio_costo FROM inventario WHERE activo=1 AND stock_actual>0 ORDER BY nombre LIMIT 800")->fetchAll();
+ $trats = db()->query("SELECT id,codigo,nombre,precio_base FROM tratamientos_catalogo WHERE activo=1 ORDER BY nombre LIMIT 800")->fetchAll();
  require_once __DIR__.'/../includes/header.php';
 ?>
 <form method="POST" id="frm">
@@ -542,11 +543,21 @@ if ($accion==='lista') {
 
    <!-- Items -->
    <div class="card mb-4">
-    <div class="card-header">
+    <div class="card-header" style="flex-wrap:wrap;gap:8px">
      <span><i class="bi bi-list-check me-1"></i>Ítems del comprobante</span>
-     <button type="button" class="btn btn-primary btn-sm" onclick="addRow()">+ Línea</button>
+     <div class="d-flex gap-2 align-items-center flex-wrap">
+      <style>
+       .modo-btn{padding:4px 10px;border:1px solid var(--bd2);background:var(--bg3);color:var(--t2);border-radius:6px;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+       .modo-btn.modo-active{background:var(--c);border-color:var(--c);color:#0a0e14;font-weight:700}
+      </style>
+      <small style="color:var(--t2);font-size:11px">Buscar en:</small>
+      <button type="button" id="modoInv" class="modo-btn modo-active" onclick="setModo('inv')"><i class="bi bi-box-seam"></i> Almacén</button>
+      <button type="button" id="modoTrat" class="modo-btn" onclick="setModo('trat')"><i class="bi bi-clipboard2-pulse"></i> Tratamientos</button>
+      <button type="button" class="btn btn-primary btn-sm" onclick="addRow()">+ Línea</button>
+     </div>
     </div>
     <div class="p-4">
+     <small style="color:var(--t2);font-size:11px;display:block;margin-bottom:8px"><i class="bi bi-info-circle me-1"></i>Los precios ya incluyen IGV (18%). Se desglosa automáticamente en el comprobante.</small>
      <div class="table-responsive"><table class="table mb-0" id="tbl">
       <thead><tr><th style="min-width:280px">Producto / Servicio</th><th>Cant.</th><th>Precio</th><th>Subtotal</th><th></th></tr></thead>
       <tbody id="tb"></tbody>
@@ -571,7 +582,11 @@ if ($accion==='lista') {
     <div class="card-header"><span><i class="bi bi-file-earmark-text me-1"></i>Comprobante</span></div>
     <div class="p-4">
      <label class="form-label">Tipo *</label>
-     <div class="btn-group w-100 mb-3" role="group">
+     <style>
+      .tipo-group .btn-check:checked + .btn{background:var(--c);border-color:var(--c);color:#0a0e14;font-weight:700;box-shadow:0 0 0 2px rgba(0,212,238,.25)}
+      .tipo-group .btn-check:checked + .btn i{color:#0a0e14}
+     </style>
+     <div class="btn-group tipo-group w-100 mb-3" role="group">
       <input type="radio" class="btn-check" name="tipo_comprobante" id="tBol" value="boleta" checked>
       <label class="btn btn-dk" for="tBol"><i class="bi bi-receipt me-1"></i>Boleta</label>
       <input type="radio" class="btn-check" name="tipo_comprobante" id="tFac" value="factura">
@@ -603,7 +618,7 @@ if ($accion==='lista') {
    </div>
 
    <div class="d-grid gap-2">
-    <button type="submit" class="btn btn-primary btn-lg"><i class="bi bi-send-check me-2"></i>Emitir y generar XML</button>
+    <button type="submit" id="btnEmitir" class="btn btn-primary btn-lg"><i class="bi bi-send-check me-2"></i>Emitir y generar XML</button>
     <a href="?" class="btn btn-dk">Cancelar</a>
    </div>
   </div>
@@ -615,26 +630,52 @@ if ($accion==='lista') {
   <option value="<?=e($iv['codigo'].' — '.$iv['nombre'])?>"></option>
  <?php endforeach; ?>
 </datalist>
+<datalist id="tratList">
+ <?php foreach($trats as $tr): ?>
+  <option value="<?=e(($tr['codigo']?$tr['codigo'].' — ':'').$tr['nombre'])?>"></option>
+ <?php endforeach; ?>
+</datalist>
 
 <?php
-// Inventario JSON para autocomplete (precio + stock + id)
 $invJson = json_encode(array_map(fn($x)=>[
- 'id'    =>(int)$x['id'],
- 'cod'   =>$x['codigo'],
- 'name'  =>$x['nombre'],
- 'unit'  =>$x['unidad'],
- 'stock' =>(float)$x['stock_actual'],
- 'price' =>(float)$x['precio_costo'],
+ 'id'   => (int)$x['id'],
+ 'cod'  => $x['codigo'],
+ 'name' => $x['nombre'],
+ 'unit' => $x['unidad'],
+ 'stock'=> (float)$x['stock_actual'],
+ 'price'=> (float)$x['precio_costo'],
 ],$invs), JSON_UNESCAPED_UNICODE);
 
+$tratJson = json_encode(array_map(fn($x)=>[
+ 'id'   => (int)$x['id'],
+ 'cod'  => $x['codigo'] ?? '',
+ 'name' => $x['nombre'],
+ 'price'=> (float)$x['precio_base'],
+],$trats), JSON_UNESCAPED_UNICODE);
+
 $xscript = '<script>
-const INV = '.$invJson.';
+const INV  = '.$invJson.';
+const TRAT = '.$tratJson.';
+let MODO = "inv"; // "inv" = almacén · "trat" = tratamientos
+
+function setModo(m){
+ MODO = m;
+ document.querySelectorAll("input[name=concepto\\\\[\\\\]]").forEach(inp=>{
+  inp.setAttribute("list", MODO === "inv" ? "invList" : "tratList");
+  inp.placeholder = MODO === "inv" ? "Buscar producto del almacén..." : "Buscar tratamiento...";
+ });
+ document.getElementById("modoInv").classList.toggle("modo-active", MODO==="inv");
+ document.getElementById("modoTrat").classList.toggle("modo-active", MODO==="trat");
+}
+
 function addRow(){
  const tr=document.createElement("tr");
+ const list = MODO === "inv" ? "invList" : "tratList";
+ const ph   = MODO === "inv" ? "Buscar producto del almacén..." : "Buscar tratamiento...";
  tr.innerHTML=`
   <td>
    <input type="hidden" name="inventario_id[]" value="">
-   <input type="text" class="form-control form-control-sm" name="concepto[]" placeholder="Buscar producto o escribir servicio..." list="invList" oninput="onConcepto(this)" required>
+   <input type="text" class="form-control form-control-sm" name="concepto[]" placeholder="${ph}" list="${list}" oninput="onConcepto(this)" required>
    <small class="stock-info" style="color:var(--t2);font-size:10px"></small>
   </td>
   <td><input type="number" name="cantidad[]" class="form-control form-control-sm c-inp" value="1" min="0.01" step="0.01" style="width:75px" oninput="rowCalc(this)"></td>
@@ -645,26 +686,40 @@ function addRow(){
  document.getElementById("tb").appendChild(tr);
  recalc();
 }
+
 function onConcepto(inp){
  const tr=inp.closest("tr");
  const v = (inp.value||"").trim();
- const m = INV.find(x =>
-   v === x.cod+" — "+x.name ||
-   v === x.cod+" - "+x.name ||
+ const lookup = (arr) => arr.find(x =>
+   v === (x.cod?x.cod+" — ":"")+x.name ||
+   v === (x.cod?x.cod+" - ":"")+x.name ||
    v === x.name ||
-   v === x.cod ||
-   v.toLowerCase().startsWith((x.cod+" ").toLowerCase())
+   (x.cod && v === x.cod) ||
+   (x.cod && v.toLowerCase().startsWith((x.cod+" ").toLowerCase()))
  );
+ // Busca primero en el modo activo, luego cae al otro como fallback
+ let m = lookup(MODO === "inv" ? INV : TRAT);
+ let from = MODO;
+ if(!m){
+  m = lookup(MODO === "inv" ? TRAT : INV);
+  if(m) from = MODO === "inv" ? "trat" : "inv";
+ }
  if(m){
-  tr.querySelector("input[name=\'inventario_id[]\']").value = m.id;
+  if(from === "inv"){
+   tr.querySelector("input[name=\'inventario_id[]\']").value = m.id;
+   tr.querySelector(".stock-info").innerHTML = "<i class=\"bi bi-box\"></i> Stock: "+m.stock+" "+(m.unit||"u")+" · "+m.cod+" <span style=\"color:var(--c)\">(almacén)</span>";
+  } else {
+   tr.querySelector("input[name=\'inventario_id[]\']").value = "";
+   tr.querySelector(".stock-info").innerHTML = "<i class=\"bi bi-clipboard2-pulse\"></i> Tratamiento "+(m.cod||"")+" <span style=\"color:var(--c)\">(servicio)</span>";
+  }
   tr.querySelector(".p-inp").value = m.price.toFixed(2);
-  tr.querySelector(".stock-info").innerHTML = "<i class=\"bi bi-box\"></i> Stock: "+m.stock+" "+(m.unit||"u")+" · "+m.cod;
  } else {
   tr.querySelector("input[name=\'inventario_id[]\']").value = "";
   tr.querySelector(".stock-info").textContent = "";
  }
  rowCalc(tr.querySelector(".c-inp"));
 }
+
 function rowCalc(inp){
  const tr=inp.closest("tr");
  const c=parseFloat(tr.querySelector(".c-inp").value)||0;
@@ -684,11 +739,19 @@ function recalc(){
  const info=document.getElementById("pacInfo");
  const warn=document.getElementById("warnRuc");
  const tFac=document.getElementById("tFac");
+ const btn=document.getElementById("btnEmitir");
+ const labels={
+  boleta:    \'<i class="bi bi-send-check me-2"></i>Emitir Boleta y generar XML\',
+  factura:   \'<i class="bi bi-send-check me-2"></i>Emitir Factura y generar XML\',
+  nota_venta:\'<i class="bi bi-journal-check me-2"></i>Emitir Nota de Venta\'
+ };
  function refresh(){
   const o = sel ? sel.options[sel.selectedIndex] : null;
   const ruc = o ? o.dataset.ruc : "";
   if(info) info.textContent = o && o.value ? ("DNI: "+(o.dataset.dni||"—")+" · RUC: "+(ruc||"sin RUC")) : "";
   if(warn) warn.style.display = (tFac && tFac.checked && !ruc) ? "block" : "none";
+  const sel2 = document.querySelector("input[name=tipo_comprobante]:checked");
+  if(btn && sel2) btn.innerHTML = labels[sel2.value] || labels.boleta;
  }
  if(sel) sel.addEventListener("change", refresh);
  document.querySelectorAll("input[name=tipo_comprobante]").forEach(r=>r.addEventListener("change", refresh));
