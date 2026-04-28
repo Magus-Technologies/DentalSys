@@ -334,9 +334,9 @@ if ($fmt === 'ticket') {
  .emp-com{font-size:8pt;color:#444;margin-top:3px;line-height:1.3}
  .emp-line{font-size:8pt;color:#000;margin-top:2px}
 
- .doc-box{border:2px solid #888;border-radius:8px;width:100%}
+ .doc-box{border:2px solid <?=e($emp_color)?>;border-radius:8px;width:100%}
  .doc-box .ruc{padding:6px 10px;font-size:10pt;font-weight:bold;text-align:center}
- .doc-box .tipo{background:#bfc4cc;padding:6px 8px;font-size:10pt;font-weight:bold;text-align:center;line-height:1.2}
+ .doc-box .tipo{background:<?=e($emp_color)?>;color:#fff;padding:6px 8px;font-size:10pt;font-weight:bold;text-align:center;line-height:1.2}
  .doc-box .num{padding:7px 10px;font-size:13pt;font-weight:bold;text-align:center;font-family:DejaVu Sans Mono, monospace}
  .doc-box .est{padding:0 10px 5px;font-size:8pt;font-weight:bold;text-align:center;color:<?=e($estadoColor)?>;letter-spacing:.4px}
 
@@ -346,11 +346,11 @@ if ($fmt === 'ticket') {
  .client-tbl b{font-weight:bold}
 
  /* TABLA DE PRODUCTOS */
- .products-table{width:100%;border-collapse:collapse;margin-bottom:6px;border:2px solid #999;border-radius:6px}
- .products-table thead{background:#bfc4cc;color:#000}
- .products-table th{padding:6px 4px;font-size:7.5pt;font-weight:bold;border:1px solid #999;text-align:center}
- .products-table td{padding:6px 4px;font-size:8pt;border-left:1px solid #999;border-right:1px solid #999;vertical-align:top}
- .products-table tbody tr:last-child td{border-bottom:1px solid #999}
+ .products-table{width:100%;border-collapse:collapse;margin-bottom:6px;border:2px solid <?=e($emp_color)?>;border-radius:6px}
+ .products-table thead{background:<?=e($emp_color)?>;color:#fff}
+ .products-table th{padding:6px 4px;font-size:7.5pt;font-weight:bold;border:1px solid <?=e($emp_color)?>;text-align:center}
+ .products-table td{padding:6px 4px;font-size:8pt;border-left:1px solid #ccc;border-right:1px solid #ccc;vertical-align:top}
+ .products-table tbody tr:last-child td{border-bottom:1px solid #ccc}
  .item-extra{color:#666;font-size:7pt;margin-top:2px;font-style:italic}
 
  /* SON: ... */
@@ -370,10 +370,10 @@ if ($fmt === 'ticket') {
  .totals-up td.lbl{text-align:right;width:65%}
  .totals-up td.val{text-align:right;font-family:DejaVu Sans Mono, monospace;width:35%}
 
- .totals-down{width:100%;border-collapse:separate;border-spacing:0;border:2px solid #999;border-radius:6px;background:#bfc4cc}
- .totals-down td{padding:7px 10px;font-size:13pt;font-weight:bold}
+ .totals-down{width:100%;border-collapse:separate;border-spacing:0;border:2px solid <?=e($emp_color)?>;border-radius:6px;background:<?=e($emp_color)?>}
+ .totals-down td{padding:7px 10px;font-size:13pt;font-weight:bold;color:#fff}
  .totals-down td.lbl{text-align:right;width:60%}
- .totals-down td.val{text-align:right;font-family:DejaVu Sans Mono, monospace;width:40%;color:#000}
+ .totals-down td.val{text-align:right;font-family:DejaVu Sans Mono, monospace;width:40%}
 
  /* FOOTER */
  .prop{margin-top:14px;text-align:center;font-size:9pt;font-weight:bold;font-style:italic;color:<?=e($emp_color)?>}
