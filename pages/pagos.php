@@ -1,8 +1,4 @@
 <?php
-/**
- * pagos.php — Caja diaria y cobros (recibos internos).
- * La emisión electrónica (boleta/factura SUNAT) vive en pages/facturacion.php.
- */
 require_once __DIR__.'/../includes/config.php';
 requiereLogin();
 $accion=$_GET['accion']??'lista'; $id=(int)($_GET['id']??0);
@@ -19,10 +15,10 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   }
   $cod=genCodigo('PAG','pagos');
   $sub=(float)$_POST['subtotal']; $desc=(float)($_POST['descuento']??0); $tot=$sub-$desc;
-
-  db()->prepare("INSERT INTO pagos(codigo,paciente_id,caja_id,plan_id,cita_id,fecha,subtotal,descuento,total,metodo,referencia,tipo_comprobante,estado,notas,created_by)VALUES(?,?,?,?,?,NOW(),?,?,?,?,?,'ticket',?,?,?)")
+  db()->prepare("INSERT INTO pagos(codigo,paciente_id,caja_id,plan_id,cita_id,fecha,subtotal,descuento,total,metodo,referencia,estado,notas,created_by)VALUES(?,?,?,?,?,NOW(),?,?,?,?,?,?,?,?)")
    ->execute([$cod,(int)$_POST['paciente_id'],$caja,$_POST['plan_id']?:null,$_POST['cita_id']?:null,$sub,$desc,$tot,$_POST['metodo'],$_POST['referencia']??'',$_POST['estado']??'pagado',trim($_POST['notas']??''),$_SESSION['uid']]);
   $pid=db()->lastInsertId();
+  // Detalles
   $concs=$_POST['concepto']??[]; $cants=$_POST['cantidad']??[]; $precios=$_POST['precio']??[];
   foreach($concs as $i=>$con){ if(!trim($con)) continue;
    $cant=(float)($cants[$i]??1); $pr=(float)($precios[$i]??0);
@@ -32,7 +28,6 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   flash('ok',"Pago registrado: $cod — ".mon($tot));
   go("pages/pagos.php?accion=ver&id=$pid");
  }
-
  if($ap==='apertura_caja'){
   $mi=(float)$_POST['monto_inicial'];
   db()->prepare("INSERT INTO cajas(usuario_id,fecha_apertura,monto_inicial,estado)VALUES(?,NOW(),?,'abierta')")->execute([$_SESSION['uid'],$mi]);
@@ -99,27 +94,18 @@ if($accion==='lista'){
  </div>
 </form></div>
 <div class="card"><div class="table-responsive"><table class="table mb-0">
- <thead><tr><th>Código</th><th>Paciente</th><th>Fecha/Hora</th><th>Total</th><th>Método</th><th>Estado</th><th></th></tr></thead>
+ <thead><tr><th class="d-none d-md-table-cell">Código</th><th>Paciente</th><th class="d-none d-sm-table-cell">Fecha/Hora</th><th>Total</th><th class="d-none d-md-table-cell">Método</th><th>Estado</th><th></th></tr></thead>
  <tbody>
  <?php foreach($lista as $pg):
   $ec=['pagado'=>'bg','pendiente'=>'ba','anulado'=>'br'];
-  $tc=$pg['tipo_comprobante']??'ticket';
  ?><tr>
-  <td class="mon" style="color:var(--c);font-size:11px"><?=e($pg['codigo'])?>
-   <?php if(in_array($tc,['factura','boleta'],true)): ?><br><small style="color:var(--t2)"><?=e($pg['serie']??'')?>-<?=str_pad((string)($pg['numero']??0),8,'0',STR_PAD_LEFT)?></small><?php endif; ?>
-  </td>
+  <td class="mon d-none d-md-table-cell" style="color:var(--c);font-size:11px"><?=e($pg['codigo'])?></td>
   <td><strong><?=e($pg['pac'])?></strong></td>
-  <td><small><?=fDT($pg['fecha'])?></small></td>
+  <td class="d-none d-sm-table-cell"><small><?=fDT($pg['fecha'])?></small></td>
   <td class="mon fw-bold"><?=mon((float)$pg['total'])?></td>
-  <td><span class="badge bgr"><?=strtoupper($pg['metodo'])?></span></td>
+  <td class="d-none d-md-table-cell"><span class="badge bgr"><?=strtoupper($pg['metodo'])?></span></td>
   <td><span class="badge <?=$ec[$pg['estado']]?>"><?=$pg['estado']?></span></td>
-  <td>
-   <?php if(in_array($tc,['factura','boleta'],true)): ?>
-    <a href="<?=BASE_URL?>/pages/facturacion.php?accion=ver&id=<?=$pg['id']?>" class="btn btn-dk btn-ico" title="Ver comprobante"><i class="bi bi-receipt"></i></a>
-   <?php else: ?>
-    <a href="?accion=ver&id=<?=$pg['id']?>" class="btn btn-dk btn-ico" title="Ver"><i class="bi bi-eye"></i></a>
-   <?php endif; ?>
-  </td>
+  <td><a href="?accion=ver&id=<?=$pg['id']?>" class="btn btn-dk btn-ico"><i class="bi bi-eye"></i></a></td>
  </tr><?php endforeach; if(!$lista): ?>
  <tr><td colspan="7" class="text-center py-4" style="color:var(--t2)">No hay cobros para este período</td></tr>
  <?php endif; ?></tbody>
@@ -193,7 +179,7 @@ if($accion==='lista'){
  </div>
  <div class="col-12 col-lg-5">
   <div class="card mb-4">
-   <div class="card-header"><span><i class="bi bi-lightning me-1"></i>Acciones</span></div>
+   <div class="card-header"><span style="color:var(--t)"><i class="bi bi-lightning me-1"></i>Acciones</span></div>
    <div class="p-3 d-grid gap-2">
     <a href="<?=BASE_URL?>/pages/pacientes.php?accion=ver&id=<?=$pago['paciente_id']?>" class="btn btn-dk"><i class="bi bi-person me-2"></i>Ver paciente</a>
     <?php if($pago['estado']==='pagado'&&$pago['ptl']): ?>
@@ -208,20 +194,6 @@ if($accion==='lista'){
     <?php endif; ?>
    </div>
   </div>
-
-  <?php if(in_array($pago['tipo_comprobante']??'', ['factura','boleta'], true)): ?>
-  <div class="card">
-   <div class="card-header"><span><i class="bi bi-bank me-1"></i>Comprobante electrónico</span></div>
-   <div class="p-3">
-    <div class="mb-2" style="font-size:12px;color:var(--t2)">
-     Este pago tiene comprobante electrónico asociado.
-    </div>
-    <a href="<?=BASE_URL?>/pages/facturacion.php?accion=ver&id=<?=$id?>" class="btn btn-primary btn-sm w-100">
-     <i class="bi bi-receipt-cutoff me-1"></i>Ver en Facturación
-    </a>
-   </div>
-  </div>
-  <?php endif; ?>
  </div>
 </div>
 <?php require_once __DIR__.'/../includes/footer.php';
@@ -237,7 +209,7 @@ if($accion==='lista'){
 <form method="POST">
  <input type="hidden" name="accion" value="guardar_pago">
  <input type="hidden" name="cita_id" value="<?=$cita_id?>">
- <div class="card mb-4"><div class="card-header"><span><i class="bi bi-person me-1"></i>Paciente</span></div>
+ <div class="card mb-4"><div class="card-header"><span style="color:var(--t)"><i class="bi bi-person me-1"></i>Paciente</span></div>
  <div class="p-4">
  <?php if($pac_pre): ?>
   <input type="hidden" name="paciente_id" value="<?=$pac_pre['id']?>">
@@ -260,10 +232,10 @@ if($accion==='lista'){
  <?php else: ?><input type="hidden" name="plan_id" value=""><?php endif; ?>
  </div></div>
  <!-- Detalles del pago -->
- <div class="card mb-4"><div class="card-header"><span><i class="bi bi-list-check me-1"></i>Conceptos a cobrar</span>
+ <div class="card mb-4"><div class="card-header"><span style="color:var(--t)"><i class="bi bi-list-check me-1"></i>Conceptos a cobrar</span>
  <button type="button" class="btn btn-primary btn-sm" onclick="addConcepto()">+ Línea</button></div>
  <div class="p-4">
-  <div class="table-responsive"><table class="table mb-0" id="tblDet">
+  <div class="table-responsive" style="-webkit-overflow-scrolling:touch"><table class="table mb-0" id="tblDet">
    <thead><tr><th>Concepto</th><th>Cant.</th><th>Precio</th><th>Subtotal</th><th></th></tr></thead>
    <tbody id="tbDet">
     <tr>
@@ -275,8 +247,8 @@ if($accion==='lista'){
     </tr>
    </tbody>
   </table></div>
-  <div class="text-end mt-3 p-3 rounded" style="background:var(--bg3)">
-   <div class="d-flex justify-content-between mb-2">
+  <div class="mt-3 p-3 rounded" style="background:var(--bg3)">
+   <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
     <span style="color:var(--t2)">Descuento S/</span>
     <input type="number" name="descuento" id="descInp" value="0" step="0.01" min="0" class="form-control form-control-sm text-end" style="width:100px" oninput="calcTotal()">
    </div>
@@ -286,7 +258,7 @@ if($accion==='lista'){
   </div>
  </div></div>
  <!-- Método de pago -->
- <div class="card mb-4"><div class="card-header"><span><i class="bi bi-credit-card me-1"></i>Método de pago</span></div>
+ <div class="card mb-4"><div class="card-header"><span style="color:var(--t)"><i class="bi bi-credit-card me-1"></i>Método de pago</span></div>
  <div class="p-4"><div class="row g-3">
   <div class="col-12 col-md-6"><label class="form-label">Método *</label>
   <select name="metodo" class="form-select" required>
@@ -294,18 +266,13 @@ if($accion==='lista'){
    <option value="plin">📱 Plin</option><option value="tarjeta_debito">💳 Tarjeta débito</option>
    <option value="tarjeta_credito">💳 Tarjeta crédito</option><option value="transferencia">🔄 Transferencia</option><option value="otro">📋 Otro</option>
   </select></div>
+  <div class="col-12 col-md-6"><label class="form-label">N° operación / Referencia</label><input type="text" name="referencia" class="form-control" placeholder="Número de operación"></div>
   <div class="col-12 col-md-6"><label class="form-label">Estado</label>
   <select name="estado" class="form-select">
    <option value="pagado">✅ Pagado</option><option value="pendiente">⏳ Pendiente</option>
   </select></div>
-  <div class="col-12 col-md-6"><label class="form-label">N° operación / Referencia</label><input type="text" name="referencia" class="form-control" placeholder="Número de operación"></div>
   <div class="col-12"><label class="form-label">Notas</label><textarea name="notas" class="form-control" rows="2"></textarea></div>
  </div></div></div>
- <div class="alert alert-info" style="font-size:12px">
-  <i class="bi bi-info-circle me-1"></i>
-  Este registro genera un <strong>recibo interno</strong> (sin SUNAT). Para emitir <strong>boleta o factura</strong>, ve a
-  <a href="<?=BASE_URL?>/pages/facturacion.php?accion=nueva<?=$pac_pre?'&paciente_id='.$pac_pre['id']:''?>" style="color:var(--c);font-weight:700">Facturación</a>.
- </div>
  <div class="d-flex gap-2 justify-content-end">
   <a href="?" class="btn btn-dk">Cancelar</a>
   <button type="submit" class="btn btn-primary px-4"><i class="bi bi-cash-coin me-2"></i>Registrar pago</button>

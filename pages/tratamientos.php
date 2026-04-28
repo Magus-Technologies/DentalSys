@@ -87,7 +87,7 @@ if($accion==='catalogo'){
 <div class="row justify-content-center"><div class="col-12 col-lg-7">
 <form method="POST">
  <input type="hidden" name="accion" value="guardar_trat"><input type="hidden" name="id" value="<?=$t['id']?>">
- <div class="card mb-4"><div class="card-header"><span>💊 Datos del tratamiento</span></div>
+ <div class="card mb-4"><div class="card-header"><span style="color:var(--t)">💊 Datos del tratamiento</span></div>
  <div class="p-4"><div class="row g-3">
   <div class="col-12 col-md-4"><label class="form-label">Código</label><input type="text" name="codigo" class="form-control" value="<?=e($t['codigo']??'')?>" placeholder="R001"></div>
   <div class="col-12 col-md-8"><label class="form-label">Nombre del tratamiento *</label><input type="text" name="nombre" class="form-control" value="<?=e($t['nombre'])?>" required></div>
@@ -124,7 +124,7 @@ if($accion==='catalogo'){
 <div class="row g-4">
  <div class="col-12 col-lg-8">
   <div class="card mb-4">
-   <div class="card-header"><span>💊 Líneas de tratamiento</span>
+   <div class="card-header"><span style="color:var(--t)">💊 Líneas de tratamiento</span>
    <button type="button" class="btn btn-primary btn-sm" onclick="addRow()">+ Agregar tratamiento</button></div>
    <div class="p-4">
     <div class="table-responsive"><table class="table mb-0" id="tblPlan">
@@ -150,7 +150,7 @@ if($accion==='catalogo'){
     </div>
    </div>
   </div>
-  <div class="card mb-4"><div class="card-header"><span>📝 Notas del plan</span></div>
+  <div class="card mb-4"><div class="card-header"><span style="color:var(--t)">📝 Notas del plan</span></div>
   <div class="p-4"><textarea name="notas" class="form-control" rows="3"><?=e($plan_ex['notas']??'')?></textarea></div></div>
   <div class="d-flex gap-2 justify-content-end">
    <a href="<?=BASE_URL?>/pages/historia_clinica.php?id=<?=$hc_id?>" class="btn btn-dk">Cancelar</a>
@@ -159,7 +159,7 @@ if($accion==='catalogo'){
  </div>
  <div class="col-12 col-lg-4">
   <div class="card" style="position:sticky;top:70px">
-   <div class="card-header"><span>📚 Catálogo rápido</span></div>
+   <div class="card-header"><span style="color:var(--t)">📚 Catálogo rápido</span></div>
    <div style="max-height:500px;overflow-y:auto">
     <?php $cat_curr=''; foreach($trats as $t):
      if($cat_curr!==$t['cat']){$cat_curr=$t['cat']; echo "<div class='sb-sec'>".$t['cat']."</div>"; }

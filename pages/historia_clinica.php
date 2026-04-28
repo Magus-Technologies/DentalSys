@@ -2,6 +2,8 @@
 require_once __DIR__.'/../includes/config.php';
 requiereLogin();
 $accion=$_GET['accion']??'lista'; $id=(int)($_GET['id']??0); $pac_id=(int)($_GET['paciente_id']??0);
+// Si viene ?id=X sin accion, mostrar la HC directamente
+if($id && $accion==='lista') $accion='ver';
 
 if($_SERVER['REQUEST_METHOD']==='POST'){
  $ap=$_POST['accion']??'';
@@ -69,7 +71,10 @@ if($accion==='lista'){
   <td><?=fDate($hc['fecha_apertura'])?></td>
   <td><small><?=e(mb_substr($hc['motivo_consulta'],0,60))?>...</small></td>
   <td><span class="badge <?=$hc['estado']==='activa'?'bg':'bgr'?>"><?=$hc['estado']?></span></td>
-  <td><a href="?id=<?=$hc['id']?>" class="btn btn-primary btn-sm">Abrir HC</a></td>
+  <td><div class="d-flex gap-1">
+   <a href="?id=<?=$hc['id']?>" class="btn btn-primary btn-sm">Abrir HC</a>
+   <a href="<?=BASE_URL?>/pages/hc_pdf.php?id=<?=$hc['id']?>" target="_blank" class="btn btn-dk btn-sm btn-ico" title="Ver PDF"><i class="bi bi-file-pdf"></i></a>
+  </div></td>
  </tr>
  <?php endforeach; if(!$lista): ?>
  <tr><td colspan="6" class="text-center py-4" style="color:var(--t2)">No hay historias clínicas</td></tr>
@@ -78,7 +83,7 @@ if($accion==='lista'){
 </table></div></div>
 <?php require_once __DIR__.'/../includes/footer.php';
 
-}elseif($id){
+}elseif($accion==='ver' && $id){
  $st=db()->prepare("SELECT hc.*,CONCAT(p.nombres,' ',p.apellido_paterno) AS pac_nm,p.id AS pid,p.dni,p.fecha_nacimiento,p.alergias,p.enfermedades_base,p.medicacion_actual,CONCAT(u.nombre,' ',u.apellidos) AS dr FROM historias_clinicas hc JOIN pacientes p ON hc.paciente_id=p.id LEFT JOIN usuarios u ON hc.doctor_id=u.id WHERE hc.id=?");
  $st->execute([$id]); $hc=$st->fetch(); if(!$hc){flash('error','HC no encontrada');go('pages/historia_clinica.php');}
  $evols=db()->prepare("SELECT e.*,CONCAT(u.nombre,' ',u.apellidos) AS dr FROM evoluciones e LEFT JOIN usuarios u ON e.doctor_id=u.id WHERE e.hc_id=? ORDER BY e.fecha DESC"); $evols->execute([$id]); $evols=$evols->fetchAll();
@@ -91,24 +96,25 @@ if($accion==='lista'){
  if($plan){$pd=db()->prepare("SELECT * FROM plan_detalles WHERE plan_id=? ORDER BY orden");$pd->execute([$plan['id']]);$plan_det=$pd->fetchAll();}
  $titulo='HC: '.$hc['numero_hc'].' — '.$hc['pac_nm']; $pagina_activa='hc';
  $topbar_act='<a href="'.BASE_URL.'/pages/pacientes.php?accion=ver&id='.$hc['pid'].'" class="btn btn-dk btn-sm"><i class="bi bi-person me-1"></i>Paciente</a>
- <a href="?accion=editar&id='.$id.'" class="btn btn-dk btn-sm"><i class="bi bi-pencil me-1"></i>Editar HC</a>';
+ <a href="?accion=editar&id='.$id.'" class="btn btn-dk btn-sm"><i class="bi bi-pencil me-1"></i>Editar HC</a>
+ <a href="'.BASE_URL.'/pages/hc_pdf.php?id='.$id.'" target="_blank" class="btn btn-primary btn-sm"><i class="bi bi-file-pdf me-1"></i>Ver / Imprimir PDF</a>';
  require_once __DIR__.'/../includes/header.php';
 ?>
 <?php if($hc['alergias']): ?>
 <div class="alert-bar alert-bar-r mb-4"><div class="d-flex align-items-center gap-2"><span>⚠️</span><strong style="color:var(--r)">ALERGIAS:</strong><span><?=e($hc['alergias'])?></span></div></div>
 <?php endif; ?>
-<ul class="nav nav-tabs mb-4">
+<div class="nav-tabs-scroll"><ul class="nav nav-tabs mb-4" style="flex-wrap:nowrap;min-width:max-content">
  <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" data-bs-target="#td">📋 Datos clínicos</a></li>
  <li class="nav-item"><a class="nav-link" href="<?=BASE_URL?>/pages/odontograma.php?paciente_id=<?=$hc['pid']?>&hc_id=<?=$id?>">🦷 Odontograma</a></li>
  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" data-bs-target="#tpl">💊 Plan (<?=$plan?count($plan_det):0?>)</a></li>
  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" data-bs-target="#tev">📝 Evoluciones (<?=count($evols)?>)</a></li>
  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" data-bs-target="#taj">📸 Adjuntos (<?=count($adjs)?>)</a></li>
-</ul>
+</ul></div>
 <div class="tab-content">
 <!-- DATOS CLÍNICOS -->
 <div class="tab-pane fade show active" id="td">
  <div class="row g-4">
-  <div class="col-12 col-lg-8">
+  <div class="col-12 col-lg-8 order-2 order-lg-1">
    <div class="card">
     <div class="card-header"><span>📋 HC — <?=e($hc['numero_hc'])?></span><span class="badge <?=$hc['estado']==='activa'?'bg':'bgr'?>"><?=$hc['estado']?></span></div>
     <div class="p-4" style="font-size:13px">

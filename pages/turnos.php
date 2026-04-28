@@ -72,7 +72,7 @@ $topbar_act='<a href="'.BASE_URL.'/pages/turnos_pantalla.php" target="_blank" cl
  <div class="col-12 col-lg-4">
   <!-- Preview pantalla -->
   <div class="card">
-   <div class="card-header"><span>📺 Preview pantalla</span></div>
+   <div class="card-header"><span style="color:var(--t)">📺 Preview pantalla</span></div>
    <div class="p-4" style="background:#0A1520;border-radius:8px;min-height:260px">
     <div class="text-center mb-3">
      <div style="font-size:13px;color:#00D4EE;letter-spacing:2px;text-transform:uppercase">🦷 <?=getCfg('clinica_nombre')?></div>

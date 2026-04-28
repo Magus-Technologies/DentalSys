@@ -13,10 +13,10 @@ $plantilla_cita=getCfg('plantilla_wa_cita','Estimado(a) *{nombre}*, le recordamo
 require_once __DIR__.'/../includes/header.php';
 ?>
 <div class="row g-4">
- <div class="col-12 col-lg-4">
+ <div class="col-12 col-lg-4 order-2 order-lg-1">
   <!-- Plantillas WA -->
   <div class="card mb-4">
-   <div class="card-header"><span><i class="bi bi-whatsapp me-1"></i>Plantillas de mensaje</span></div>
+   <div class="card-header"><span style="color:var(--t)"><i class="bi bi-whatsapp me-1"></i>Plantillas de mensaje</span></div>
    <div class="p-4">
     <div class="mb-3"><label class="form-label">📅 Recordatorio de cita</label>
     <textarea class="form-control" rows="4" id="tplCita"><?=e($plantilla_cita)?></textarea>
@@ -30,23 +30,23 @@ require_once __DIR__.'/../includes/header.php';
   </div>
   <!-- Stats -->
   <div class="card">
-   <div class="card-header"><span>📊 Estadísticas</span></div>
+   <div class="card-header"><span style="color:var(--t)">📊 Estadísticas</span></div>
    <div class="p-4" style="font-size:13px">
     <?php $enviados=db()->query("SELECT COUNT(*) FROM notificaciones WHERE DATE(created_at)=CURDATE()")->fetchColumn();
     $pend_citas=db()->query("SELECT COUNT(*) FROM citas WHERE fecha=CURDATE() AND estado='pendiente'")->fetchColumn(); ?>
-    <div class="d-flex justify-content-between py-2" style="border-bottom:1px solid var(--bd2)"><span>Notificaciones hoy</span><span class="badge bc"><?=$enviados?></span></div>
-    <div class="d-flex justify-content-between py-2" style="border-bottom:1px solid var(--bd2)"><span>Citas hoy pendientes</span><span class="badge ba"><?=$pend_citas?></span></div>
-    <div class="d-flex justify-content-between py-2"><span>Citas mañana</span><span class="badge bgr"><?=count($citas_manana)?></span></div>
+    <div class="d-flex justify-content-between py-2" style="border-bottom:1px solid var(--bd2)"><span style="color:var(--t)">Notificaciones hoy</span><span class="badge bc"><?=$enviados?></span></div>
+    <div class="d-flex justify-content-between py-2" style="border-bottom:1px solid var(--bd2)"><span style="color:var(--t)">Citas hoy pendientes</span><span class="badge ba"><?=$pend_citas?></span></div>
+    <div class="d-flex justify-content-between py-2"><span style="color:var(--t)">Citas mañana</span><span class="badge bgr"><?=count($citas_manana)?></span></div>
    </div>
   </div>
  </div>
 
- <div class="col-12 col-lg-8">
-  <ul class="nav nav-tabs mb-4">
+ <div class="col-12 col-lg-8 order-1 order-lg-2">
+  <div class="nav-tabs-scroll"><ul class="nav nav-tabs mb-4" style="flex-wrap:nowrap">
    <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" data-bs-target="#tHoy">📅 Hoy (<?=count($citas_hoy)?>)</a></li>
    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" data-bs-target="#tMan">📅 Mañana (<?=count($citas_manana)?>)</a></li>
    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" data-bs-target="#tMasivo">📢 Envío masivo</a></li>
-  </ul>
+  </ul></div>
   <div class="tab-content">
    <!-- Citas hoy -->
    <div class="tab-pane fade show active" id="tHoy">

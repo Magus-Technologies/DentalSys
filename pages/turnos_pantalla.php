@@ -13,7 +13,8 @@ body{font-family:'Nunito',sans-serif;background:#060E1A;color:#E8EDF2;min-height
 .logo{font-size:32px}
 .clinica{font-size:24px;font-weight:800;color:#00D4EE;margin:6px 0}
 .fecha{font-size:16px;color:#607080}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+@media(max-width:480px){.grid{grid-template-columns:1fr 1fr;gap:10px}.num{font-size:38px!important}.pac{font-size:15px!important}.clinica{font-size:18px!important}}
 .turno{border-radius:12px;padding:20px 22px;transition:all .3s}
 .t-esp{background:rgba(96,112,128,.1);border:1px solid rgba(96,112,128,.2)}
 .t-llam{background:rgba(245,166,35,.12);border:2px solid rgba(245,166,35,.5);animation:pulse 1.5s infinite}

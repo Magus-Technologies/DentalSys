@@ -46,7 +46,7 @@ if($accion==='agenda'){
 ?>
 <form method="GET" class="card mb-4 p-3">
  <input type="hidden" name="accion" value="agenda">
- <div class="row g-2 align-items-end">
+ <div class="row g-2 align-items-end gy-2">
   <div class="col-12 col-sm-4"><label class="form-label">Fecha</label><input type="date" name="fecha" class="form-control" value="<?=$fsel?>"></div>
   <div class="col-12 col-sm-4"><label class="form-label">Doctor</label>
   <select name="doc" class="form-select"><option value="">Todos</option>
@@ -69,15 +69,15 @@ if($accion==='agenda'){
 </div>
 <div class="card">
  <div class="table-responsive"><table class="table mb-0">
-  <thead><tr><th>Hora</th><th>Paciente</th><th>Doctor</th><th>Sillón</th><th>Tipo</th><th>Estado</th><th></th></tr></thead>
+  <thead><tr><th>Hora</th><th>Paciente</th><th class="d-none d-md-table-cell">Doctor</th><th class="d-none d-lg-table-cell">Sillón</th><th class="d-none d-lg-table-cell">Tipo</th><th>Estado</th><th></th></tr></thead>
   <tbody>
   <?php foreach($list as $c): ?>
   <tr>
    <td><span class="mon" style="color:var(--c)"><?=substr($c['hora_inicio'],0,5)?></span><br><small><?=substr($c['hora_fin'],0,5)?></small></td>
    <td><strong><?=e($c['pac'])?></strong><?php if($c['motivo']): ?><br><small><?=e(substr($c['motivo'],0,35))?></small><?php endif; ?></td>
-   <td><small><?=e($c['dr'])?></small></td>
-   <td><small><?=e($c['sill']??'—')?></small></td>
-   <td><span class="badge bgr" style="font-size:9px"><?=$c['tipo']?></span></td>
+   <td class="d-none d-md-table-cell"><small><?=e($c['dr'])?></small></td>
+   <td class="d-none d-lg-table-cell"><small><?=e($c['sill']??'—')?></small></td>
+   <td class="d-none d-lg-table-cell"><span class="badge bgr" style="font-size:9px"><?=$c['tipo']?></span></td>
    <td><span class="badge <?=$ec[$c['estado']]?>"><?=$el[$c['estado']]?></span></td>
    <td><div class="d-flex gap-1">
     <a href="?accion=ver&id=<?=$c['id']?>" class="btn btn-dk btn-ico"><i class="bi bi-eye"></i></a>
@@ -135,7 +135,7 @@ if($accion==='agenda'){
  <div class="col-12 col-lg-5">
   <?php if($cita['ptl']): ?>
   <div class="card mb-4">
-   <div class="card-header"><span><i class="bi bi-whatsapp me-1"></i>WhatsApp Recordatorio</span></div>
+   <div class="card-header"><span style="color:var(--t)"><i class="bi bi-whatsapp me-1"></i>WhatsApp Recordatorio</span></div>
    <div class="p-4 d-grid gap-2">
     <a href="<?=urlWA($cita['ptl'],$msg_rec)?>" target="_blank" class="btn btn-wa"><i class="bi bi-whatsapp me-2"></i>Enviar recordatorio de cita</a>
     <button type="button" class="btn btn-dk" data-bs-toggle="modal" data-bs-target="#modWA"><i class="bi bi-chat-text me-2"></i>Mensaje personalizado</button>
@@ -143,7 +143,7 @@ if($accion==='agenda'){
   </div>
   <?php endif; ?>
   <div class="card">
-   <div class="card-header"><span><i class="bi bi-lightning me-1"></i>Acciones</span></div>
+   <div class="card-header"><span style="color:var(--t)"><i class="bi bi-lightning me-1"></i>Acciones</span></div>
    <div class="p-3 d-grid gap-2">
     <a href="<?=BASE_URL?>/pages/historia_clinica.php?accion=nueva&paciente_id=<?=$cita['pid']?>&cita_id=<?=$id?>" class="btn btn-primary"><i class="bi bi-file-medical me-2"></i>Abrir historia clínica</a>
     <a href="<?=BASE_URL?>/pages/pagos.php?accion=nuevo&paciente_id=<?=$cita['pid']?>&cita_id=<?=$id?>" class="btn btn-dk"><i class="bi bi-cash me-2"></i>Registrar pago</a>
@@ -184,7 +184,7 @@ require_once __DIR__.'/../includes/footer.php';
 <form method="POST">
  <input type="hidden" name="accion" value="guardar"><input type="hidden" name="id" value="<?=$cita['id']?>">
  <div class="card mb-4">
-  <div class="card-header"><span><i class="bi bi-calendar-plus me-1"></i>Datos de la cita</span></div>
+  <div class="card-header"><span style="color:var(--t)"><i class="bi bi-calendar-plus me-1"></i>Datos de la cita</span></div>
   <div class="p-4"><div class="row g-3">
    <div class="col-12"><label class="form-label">Paciente *</label>
    <?php if($pac_pre): ?>

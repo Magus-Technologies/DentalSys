@@ -31,13 +31,13 @@ if($accion==='lista'){
  require_once __DIR__.'/../../includes/header.php';
 ?>
 <div class="card"><div class="table-responsive"><table class="table mb-0">
- <thead><tr><th>Usuario</th><th>Email</th><th>Rol</th><th>CMP/Esp.</th><th>Estado</th><th>Último acceso</th><th></th></tr></thead>
+ <thead><tr><th>Usuario</th><th class="d-none d-md-table-cell">Email</th><th>Rol</th><th class="d-none d-lg-table-cell">CMP/Esp.</th><th>Estado</th><th class="d-none d-md-table-cell">Último acceso</th><th></th></tr></thead>
  <tbody>
  <?php $rcls=['admin'=>'br','doctor'=>'bc','recepcion'=>'bg','contador'=>'ba','paciente'=>'bgr'];
  foreach($lista as $u): ?>
  <tr>
   <td><div class="d-flex align-items-center gap-2"><div class="ava" style="width:30px;height:30px;font-size:11px"><?=strtoupper(substr($u['nombre'],0,1))?></div><div><strong><?=e($u['nombre'].' '.$u['apellidos'])?></strong><?php if($u['dni']): ?><br><small><?=e($u['dni'])?></small><?php endif; ?></div></div></td>
-  <td><small><?=e($u['email'])?></small></td>
+  <td class="d-none d-md-table-cell"><small><?=e($u['email'])?></small></td>
   <td><span class="badge <?=$rcls[$u['rol']]??'bgr'?>"><?=strtoupper($u['rol'])?></span></td>
   <td><small><?=e($u['cmp']??'').' '.e($u['especialidad']??'')?></small></td>
   <td><span class="badge <?=$u['activo']?'bg':'br'?>"><?=$u['activo']?'Activo':'Inactivo'?></span></td>
@@ -58,7 +58,7 @@ if($accion==='lista'){
 <div class="row justify-content-center"><div class="col-12 col-lg-7">
 <form method="POST">
  <input type="hidden" name="accion" value="guardar"><input type="hidden" name="id" value="<?=$u['id']?>">
- <div class="card mb-4"><div class="card-header"><span><i class="bi bi-person-badge me-1"></i>Datos del usuario</span></div>
+ <div class="card mb-4"><div class="card-header"><span style="color:var(--t)"><i class="bi bi-person-badge me-1"></i>Datos del usuario</span></div>
  <div class="p-4"><div class="row g-3">
   <div class="col-12 col-md-4"><label class="form-label">Nombres *</label><input type="text" name="nombre" class="form-control" value="<?=e($u['nombre'])?>" required></div>
   <div class="col-12 col-md-4"><label class="form-label">Apellidos *</label><input type="text" name="apellidos" class="form-control" value="<?=e($u['apellidos'])?>" required></div>

@@ -60,15 +60,15 @@ if($accion==='lista'){
  <?php if($q||$cat_f||$alerta): ?><a href="?" class="btn btn-dk">✕</a><?php endif; ?>
 </form></div>
 <div class="card"><div class="table-responsive"><table class="table mb-0">
- <thead><tr><th>Código</th><th>Producto</th><th>Categoría</th><th>Stock actual</th><th>Mínimo</th><th>Estado</th><th></th></tr></thead>
+ <thead><tr><th class="d-none d-md-table-cell">Código</th><th>Producto</th><th class="d-none d-lg-table-cell">Categoría</th><th>Stock actual</th><th class="d-none d-md-table-cell">Mínimo</th><th>Estado</th><th></th></tr></thead>
  <tbody>
  <?php foreach($lista as $it): $bajo=$it['stock_actual']<=$it['stock_minimo']; ?>
  <tr>
-  <td class="mon" style="color:var(--c);font-size:11px"><?=e($it['codigo']??'—')?></td>
+  <td class="mon d-none d-md-table-cell" style="color:var(--c);font-size:11px"><?=e($it['codigo']??'—')?></td>
   <td><strong><?=e($it['nombre'])?></strong><?php if($it['descripcion']): ?><br><small><?=e(mb_substr($it['descripcion'],0,45))?></small><?php endif; ?></td>
-  <td><small><?=e($it['cat']??'—')?></small></td>
+  <td class="d-none d-lg-table-cell"><small><?=e($it['cat']??'—')?></small></td>
   <td><span class="mon fw-bold <?=$bajo?'':'?'?>" style="color:<?=$bajo?'var(--r)':'var(--t)'?>"><?=$it['stock_actual']?> <?=e($it['unidad'])?></span></td>
-  <td><small style="color:var(--t2)"><?=$it['stock_minimo']?> <?=e($it['unidad'])?></small></td>
+  <td class="d-none d-md-table-cell"><small style="color:var(--t2)"><?=$it['stock_minimo']?> <?=e($it['unidad'])?></small></td>
   <td><span class="badge <?=$bajo?'br':'bg'?>"><?=$bajo?'⚠ BAJO':'OK'?></span></td>
   <td><div class="d-flex gap-1">
    <a href="?accion=ver&id=<?=$it['id']?>" class="btn btn-dk btn-ico"><i class="bi bi-eye"></i></a>
@@ -94,7 +94,7 @@ if($accion==='lista'){
 <div class="row g-4">
  <div class="col-12 col-lg-4">
   <div class="card mb-4">
-   <div class="card-header"><span>📦 Info del producto</span></div>
+   <div class="card-header"><span style="color:var(--t)">📦 Info del producto</span></div>
    <div class="p-4" style="font-size:13px">
     <div class="text-center mb-3">
      <div style="font-size:40px">📦</div>
@@ -113,7 +113,7 @@ if($accion==='lista'){
   </div>
   <!-- Registrar movimiento -->
   <div class="card">
-   <div class="card-header"><span>➕ Registrar movimiento</span></div>
+   <div class="card-header"><span style="color:var(--t)">➕ Registrar movimiento</span></div>
    <form method="POST" class="p-4">
     <input type="hidden" name="accion" value="movimiento"><input type="hidden" name="producto_id" value="<?=$id?>">
     <div class="mb-3"><label class="form-label">Tipo *</label>
@@ -137,7 +137,7 @@ if($accion==='lista'){
   <!-- Lotes vigentes -->
   <?php if($lotes): ?>
   <div class="card mb-4">
-   <div class="card-header"><span>🏷️ Lotes registrados</span></div>
+   <div class="card-header"><span style="color:var(--t)">🏷️ Lotes registrados</span></div>
    <div class="table-responsive"><table class="table mb-0">
     <thead><tr><th>Lote</th><th>Vencimiento</th><th>Cantidad</th><th>Precio costo</th></tr></thead>
     <tbody>
@@ -154,7 +154,7 @@ if($accion==='lista'){
   <?php endif; ?>
   <!-- Kardex -->
   <div class="card">
-   <div class="card-header"><span>📋 Kardex / Movimientos</span></div>
+   <div class="card-header"><span style="color:var(--t)">📋 Kardex / Movimientos</span></div>
    <div class="table-responsive"><table class="table mb-0">
     <thead><tr><th>Fecha</th><th>Tipo</th><th>Cantidad</th><th>Antes</th><th>Después</th><th>Motivo</th><th>Usuario</th></tr></thead>
     <tbody>
@@ -190,7 +190,7 @@ require_once __DIR__.'/../includes/footer.php';
 <div class="row justify-content-center"><div class="col-12 col-lg-7">
 <form method="POST">
  <input type="hidden" name="accion" value="guardar"><input type="hidden" name="id" value="<?=$it['id']?>">
- <div class="card mb-4"><div class="card-header"><span>📦 Datos del producto</span></div>
+ <div class="card mb-4"><div class="card-header"><span style="color:var(--t)">📦 Datos del producto</span></div>
  <div class="p-4"><div class="row g-3">
   <div class="col-12 col-md-4"><label class="form-label">Código</label><input type="text" name="codigo" class="form-control" value="<?=e($it['codigo']??'')?>" placeholder="INS001"></div>
   <div class="col-12 col-md-8"><label class="form-label">Nombre *</label><input type="text" name="nombre" class="form-control" value="<?=e($it['nombre'])?>" required></div>

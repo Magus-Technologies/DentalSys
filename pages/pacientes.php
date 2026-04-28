@@ -36,7 +36,7 @@ if($accion==='lista'){
  require_once __DIR__.'/../includes/header.php';
 ?>
 <div class="card mb-3 p-3">
- <form method="GET" class="d-flex gap-2 flex-wrap align-items-end">
+ <form method="GET" class="d-flex gap-2 flex-wrap align-items-end row-gap-2">
   <div class="flex-fill" style="min-width:180px"><label class="form-label">Buscar</label>
   <input type="text" name="q" class="form-control" placeholder="Nombre, DNI, código, teléfono..." value="<?=e($q)?>"></div>
   <div class="d-flex gap-2 align-items-end pt-1">
@@ -48,7 +48,7 @@ if($accion==='lista'){
 </div>
 <div class="card">
  <div class="table-responsive"><table class="table mb-0">
-  <thead><tr><th>Código</th><th>Paciente</th><th>DNI</th><th>Teléfono</th><th>Seguro</th><th>Edad</th><th></th></tr></thead>
+  <thead><tr><th>Código</th><th>Paciente</th><th class="d-none d-md-table-cell">DNI</th><th class="d-none d-sm-table-cell">Teléfono</th><th class="d-none d-lg-table-cell">Seguro</th><th class="d-none d-lg-table-cell">Edad</th><th></th></tr></thead>
   <tbody>
   <?php foreach($lista as $p): ?>
   <tr>

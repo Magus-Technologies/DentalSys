@@ -24,6 +24,12 @@ for($i=6;$i>=0;$i--){
 $ec=['pendiente'=>'ba','confirmado'=>'bc','en_atencion'=>'bb','atendido'=>'bg','no_asistio'=>'br','cancelado'=>'bgr'];
 $el=['pendiente'=>'Pendiente','confirmado'=>'Confirmado','en_atencion'=>'En atención','atendido'=>'Atendido','no_asistio'=>'No asistió','cancelado'=>'Cancelado'];
 
+$xhead = '<style>
+@media(max-width:576px){
+  .kpi-v.mon{font-size:14px!important}
+  .table td:first-child{max-width:100px;overflow:hidden;text-overflow:ellipsis}
+}
+</style>';
 require_once __DIR__.'/includes/header.php';
 ?>
 <div class="row g-3 mb-4">
@@ -58,8 +64,8 @@ require_once __DIR__.'/includes/header.php';
  </div>
  <div class="col-12 col-lg-4">
   <div class="card mb-4">
-   <div class="card-header"><span><i class="bi bi-graph-up me-2"></i>Ingresos últimos 7 días</span></div>
-   <div class="p-4"><canvas id="chartIng" height="155"></canvas></div>
+   <div class="card-header"><span style="color:var(--t)"><i class="bi bi-graph-up me-2"></i>Ingresos últimos 7 días</span></div>
+   <div class="p-4"><canvas id="chartIng" style="max-height:200px"></canvas></div>
   </div>
   <?php if($stock_bajo>0):
   $prods=db()->query("SELECT nombre,stock_actual,stock_minimo,unidad FROM inventario WHERE stock_actual<=stock_minimo AND activo=1 LIMIT 4")->fetchAll(); ?>
@@ -79,7 +85,7 @@ require_once __DIR__.'/includes/header.php';
  </div>
 </div>
 <div class="card">
- <div class="card-header"><span><i class="bi bi-clock-history me-2"></i>Últimos pacientes registrados</span>
+ <div class="card-header"><span style="color:var(--t)"><i class="bi bi-clock-history me-2"></i>Últimos pacientes registrados</span>
  <a href="<?=BASE_URL?>/pages/pacientes.php?accion=nuevo" class="btn btn-primary btn-sm">+ Nuevo paciente</a></div>
  <div class="table-responsive"><table class="table mb-0">
   <thead><tr><th>Código</th><th>Paciente</th><th>Teléfono</th><th>Registro</th><th></th></tr></thead>

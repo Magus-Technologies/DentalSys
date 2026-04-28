@@ -124,13 +124,77 @@ hr{border-color:var(--bd2)!important}
 .alert-bar{margin-bottom:4px;padding:10px 14px;border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px}
 .alert-bar-r{background:rgba(224,82,82,.1);border:1px solid rgba(224,82,82,.25);border-left:4px solid var(--r)}
 .alert-bar-a{background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.25);border-left:4px solid var(--a)}
-/* MOBILE */
-.sb-toggle{display:none;background:none;border:none;font-size:20px;color:var(--c)}
-.sb-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:999}
+/* ══ RESPONSIVE / MOBILE ══════════════════════════════════════ */
+.sb-toggle{display:none;background:none;border:none;font-size:22px;color:var(--c);padding:4px 8px;line-height:1}
+.sb-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:999;backdrop-filter:blur(2px)}
+
+/* TABLET (≤992px) */
+@media(max-width:992px){
+  :root{--sw:240px}
+  .kpi-v{font-size:18px!important}
+  .tb-title{font-size:13px}
+  .pb{padding:16px}
+}
+
+/* MOBILE (≤768px) */
 @media(max-width:768px){
- .sb{transform:translateX(-100%)}.sb.open{transform:translateX(0)}
- .sb-ov.open{display:block}.sb-toggle{display:block}
- .mw{margin-left:0}.tb,.pb{padding-left:14px;padding-right:14px}
+  :root{--sw:260px}
+  /* Sidebar slide-in */
+  .sb{transform:translateX(-100%);box-shadow:4px 0 24px rgba(0,0,0,.5)}
+  .sb.open{transform:translateX(0)}
+  .sb-ov.open{display:block}
+  .sb-toggle{display:block}
+  /* Main layout */
+  .mw{margin-left:0}
+  .tb{padding:0 12px;height:52px}
+  .pb{padding:12px}
+  /* Tables: horizontal scroll */
+  .table-responsive{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .table td,.table th{white-space:nowrap;font-size:12px!important;padding:9px 10px!important}
+  /* Cards */
+  .card-header{padding:10px 14px!important;font-size:10px!important;flex-wrap:wrap;gap:6px}
+  .card-header .btn{font-size:11px!important;padding:5px 10px!important}
+  .p-4{padding:14px!important}
+  .p-3{padding:10px!important}
+  /* KPIs */
+  .kpi{padding:12px 14px}
+  .kpi-ico{width:34px;height:34px;font-size:15px;margin-bottom:6px}
+  .kpi-v{font-size:18px!important}
+  .kpi-l{font-size:10px!important}
+  /* Buttons */
+  .btn{font-size:12px;padding:7px 12px}
+  .btn-ico{width:30px;height:30px}
+  /* Nav tabs: scroll horizontal */
+  .nav-tabs{overflow-x:auto;overflow-y:hidden;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .nav-tabs::-webkit-scrollbar{display:none}
+  .nav-tabs .nav-link{white-space:nowrap;padding:8px 12px;font-size:11px}
+  /* Modals full-screen on mobile */
+  .modal-dialog{margin:8px;max-width:calc(100vw - 16px)}
+  .modal-content{border-radius:10px!important}
+  /* Forms */
+  .form-control,.form-select{font-size:16px!important} /* prevent iOS zoom */
+  /* Avatar smaller */
+  .ava{width:32px;height:32px;font-size:12px}
+  /* Topbar actions wrap */
+  .tb>div:last-child{gap:6px!important}
+  /* Badge in nav */
+  .nb{font-size:9px;padding:1px 5px}
+  /* Sidebar footer */
+  .sb-foot{padding:10px 12px}
+  /* Page body padding */
+  .row{--bs-gutter-x:.75rem}
+}
+
+/* SMALL MOBILE (≤480px) */
+@media(max-width:480px){
+  .pb{padding:8px}
+  .kpi-v{font-size:16px!important}
+  .card-header{font-size:9px!important}
+  .btn{font-size:11px;padding:6px 10px}
+  .table td,.table th{font-size:11px!important;padding:7px 8px!important}
+  /* Stack flex items */
+  .d-flex.gap-3,.d-flex.gap-4{gap:8px!important}
+  .tb-title{font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 }
 /* ══ GLOBAL WHITE TEXT OVERRIDE ══ */
 body{color:var(--t)!important}
@@ -148,6 +212,50 @@ details summary{color:var(--c)}
 .card p,.card li,.card strong,.card b{color:var(--t)}
 .sb-sec{color:var(--t3)!important}
 a:not([class]){color:var(--c)}
+
+/* ══ MOBILE UTILITIES ══════════════════════════════════════ */
+/* Scrollable horizontal tables */
+.table-responsive{-webkit-overflow-scrolling:touch}
+/* Touch-friendly buttons */
+@media(hover:none){.btn:hover{opacity:.9}}
+/* Full-width buttons on mobile */
+@media(max-width:576px){
+  .btn-block-xs{width:100%!important;margin-bottom:6px}
+  .gap-xs-0{gap:0!important}
+  /* Forms full width */
+  .form-control,.form-select,.input-group{width:100%}
+  /* Card padding reduce */
+  .card>.p-4{padding:12px!important}
+  /* KPI value font */
+  .kpi-v{font-size:16px!important}
+  /* Stack topbar actions vertically if too many */
+  .tb>div:last-child .btn{font-size:11px;padding:5px 8px}
+  /* Table: auto-scroll hint */
+  .table-responsive::after{
+    content:'→';
+    position:absolute;right:8px;top:50%;
+    color:rgba(0,212,238,.4);font-size:16px;
+    pointer-events:none;
+  }
+  .table-responsive{position:relative}
+}
+/* Prevent table from breaking layout */
+.table{min-width:unset}
+.table td,.table th{word-break:break-word}
+/* Scrollable nav-tabs */
+.nav-tabs-scroll{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch}
+.nav-tabs-scroll .nav-tabs{flex-wrap:nowrap;min-width:max-content}
+/* Mobile card actions */
+@media(max-width:640px){
+  .card-header{flex-direction:column;align-items:flex-start!important;gap:8px!important}
+  .card-header .btn,.card-header a.btn{align-self:flex-end}
+}
+/* Sidebar: active indicator */
+.sb-nav a.act::before{content:'';position:absolute;left:0;top:20%;bottom:20%;width:3px;background:var(--c);border-radius:0 2px 2px 0}
+/* Bottom safe area for iOS */
+@supports(padding-bottom:env(safe-area-inset-bottom)){
+  .sb-foot{padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+}
 
 </style>
 <?php if(isset($xhead)) echo $xhead; ?>
@@ -174,7 +282,6 @@ a:not([class]){color:var(--c)}
   <a href="<?=BASE_URL?>/pages/tratamientos.php" class="<?=$p==='trat'?'act':''?>"><i class="bi bi-clipboard2-pulse-fill"></i>Tratamientos</a>
   <?php if(esRol('admin','contador','recepcion')): ?>
   <a href="<?=BASE_URL?>/pages/pagos.php" class="<?=$p==='pagos'?'act':''?>"><i class="bi bi-cash-coin"></i>Caja y Pagos</a>
-  <a href="<?=BASE_URL?>/pages/facturacion.php" class="<?=$p==='fact'?'act':''?>"><i class="bi bi-receipt-cutoff"></i>Facturación</a>
   <?php endif; ?>
   <a href="<?=BASE_URL?>/pages/inventario.php" class="<?=$p==='inv'?'act':''?>">
    <i class="bi bi-box-seam-fill"></i>Inventario

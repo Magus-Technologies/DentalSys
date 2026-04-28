@@ -78,7 +78,7 @@ $s->execute([$m, $y]); $citas_estados = $s->fetchAll();
 require_once __DIR__.'/../includes/header.php';
 ?>
 
-<form method="GET" class="d-flex gap-2 mb-4 align-items-end flex-wrap">
+<form method="GET" class="d-flex gap-2 mb-4 align-items-end flex-wrap row-gap-2">
     <div>
         <label class="form-label">Período</label>
         <input type="month" name="mes" class="form-control" value="<?= e($mes) ?>">
@@ -132,7 +132,7 @@ require_once __DIR__.'/../includes/header.php';
         <span style="color:var(--t)"><i class="bi bi-graph-up me-2"></i>Ingresos diarios — <?= date('F Y', mktime(0,0,0,$m,1,$y)) ?></span>
     </div>
     <div class="p-4">
-        <canvas id="chartDias" height="80"></canvas>
+        <canvas id="chartDias" style="max-height:200px"></canvas>
     </div>
 </div>
 

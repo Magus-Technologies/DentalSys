@@ -37,6 +37,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
 .fi:focus{border-color:#00D4EE;background:rgba(0,212,238,.1);box-shadow:0 0 0 3px rgba(0,212,238,.1)}
 .fi::placeholder{color:rgba(160,176,192,.4)}
 .btn-in{width:100%;padding:11px;background:#00D4EE;border:none;border-radius:8px;color:#060F1A;font-family:'Nunito',sans-serif;font-size:13px;font-weight:800;cursor:pointer;transition:all .2s;margin-top:6px}
+@media(max-width:480px){.box{padding:28px 20px;margin:8px}.brand{font-size:18px}.logo-c{width:56px;height:56px;font-size:26px}}
 .btn-in:hover{background:#00B8CC;box-shadow:0 6px 20px rgba(0,212,238,.35)}
 .err{background:rgba(224,82,82,.1);border:1px solid rgba(224,82,82,.3);border-left:3px solid #E05252;padding:9px 13px;border-radius:6px;color:#E05252;font-size:12px;margin-bottom:16px;display:flex;align-items:center;gap:8px}
 .hint{text-align:center;font-size:11px;color:rgba(160,176,192,.35);margin-top:18px}

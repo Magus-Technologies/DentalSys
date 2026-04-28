@@ -90,6 +90,38 @@ $topbar_act = '<a href="'.BASE_URL.'/pages/historia_clinica.php?paciente_id='.$p
 <a href="'.BASE_URL.'/pages/pacientes.php?accion=ver&id='.$paciente_id.'" class="btn btn-dk btn-sm"><i class="bi bi-person me-1"></i>Paciente</a>';
 
 $xhead = '<style>
+@media(max-width:768px){
+  #toolPanel{
+    overflow-x:auto;-webkit-overflow-scrolling:touch;
+    display:flex;flex-direction:row;flex-wrap:nowrap;gap:8px;padding:10px;
+    align-items:flex-start
+  }
+  #toolPanel>div{flex-shrink:0}
+  .tool-btn{width:auto;white-space:nowrap;margin-bottom:0!important}
+  .odont-wrap{padding:10px 6px}
+  .odont-svg{min-width:750px}
+  .tool-panel+.tool-panel{margin-top:0}
+}
+@media(max-width:576px){
+  .odont-wrap .d-flex.gap-2{overflow-x:auto;flex-wrap:nowrap!important;padding-bottom:4px}
+}
+
+@media(max-width:768px){
+  .odont-svg{min-width:750px}
+  .odont-wrap{padding:10px 8px;overflow-x:auto}
+  #toolPanel{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:5px}
+  .tool-btn{padding:6px 8px;font-size:11px;margin-bottom:0!important}
+  select#selCara,select+select{width:100%!important}
+}
+@media(max-width:480px){
+  .odont-svg{min-width:680px}
+  .row.g-3>.col-12.col-xl-2,
+  .row.g-3>.col-12.col-lg-3{order:2}
+  .row.g-3>.col-12.col-xl-10,
+  .row.g-3>.col-12.col-lg-9{order:1}
+}</style>';
+// Override xhead for odontogram page
+$xhead = '<style>
 /* ── ODONTOGRAMA PROFESIONAL ── */
 .odont-wrap{background:var(--bg3);border:1px solid var(--bd);border-radius:12px;padding:20px;overflow-x:auto;user-select:none}
 .odont-svg{display:block;margin:0 auto;min-width:900px;max-width:1200px;width:100%}
@@ -141,8 +173,8 @@ require_once __DIR__.'/../includes/header.php';
 
 <div class="row g-3">
  <!-- Panel de herramientas -->
- <div class="col-12 col-xl-2 col-lg-3">
-  <div class="tool-panel mb-3">
+ <div class="col-12 col-xl-2 col-lg-3 order-2 order-lg-1">
+  <div class="tool-panel mb-3" id="toolPanel">
    <div style="font-size:10px;font-weight:700;color:var(--c);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">Tipo dentadura</div>
    <div class="d-flex gap-2 mb-3">
     <button type="button" class="btn btn-sm flex-fill" id="btnPerm" onclick="setTipo('permanente')" style="font-size:11px">🦷 Permanente</button>
@@ -222,7 +254,7 @@ require_once __DIR__.'/../includes/header.php';
  </div>
 
  <!-- ODONTOGRAMA PRINCIPAL -->
- <div class="col-12 col-xl-10 col-lg-9">
+ <div class="col-12 col-xl-10 col-lg-9 order-1 order-lg-2">
   <div class="odont-wrap" id="odontWrap">
    <!-- Leyenda superior -->
    <div class="d-flex gap-2 flex-wrap mb-3 px-2 justify-content-center">
