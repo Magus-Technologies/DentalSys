@@ -7,7 +7,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
  $ap=$_POST['accion']??'';
  if($ap==='guardar'){
   $ei=(int)($_POST['id']??0);
-  $d=['nombres'=>trim($_POST['nombres']??''),'apellido_paterno'=>trim($_POST['apellido_paterno']??''),'apellido_materno'=>trim($_POST['apellido_materno']??''),'dni'=>trim($_POST['dni']??'')?:null,'fecha_nacimiento'=>$_POST['fecha_nacimiento']??'' ?:null,'sexo'=>$_POST['sexo']??null,'estado_civil'=>$_POST['estado_civil']??null,'ocupacion'=>trim($_POST['ocupacion']??''),'telefono'=>trim($_POST['telefono']??''),'email'=>trim($_POST['email']??''),'direccion'=>trim($_POST['direccion']??''),'distrito'=>trim($_POST['distrito']??''),'tipo_seguro'=>$_POST['tipo_seguro']??'ninguno','num_seguro'=>trim($_POST['num_seguro']??''),'alergias'=>trim($_POST['alergias']??''),'enfermedades_base'=>trim($_POST['enfermedades_base']??''),'medicacion_actual'=>trim($_POST['medicacion_actual']??''),'cirugia_previa'=>trim($_POST['cirugia_previa']??''),'embarazo'=>isset($_POST['embarazo'])?1:0,'fuma'=>isset($_POST['fuma'])?1:0,'alcohol'=>isset($_POST['alcohol'])?1:0,'antecedentes_obs'=>trim($_POST['antecedentes_obs']??''),'contacto_nombre'=>trim($_POST['contacto_nombre']??''),'contacto_telefono'=>trim($_POST['contacto_telefono']??''),'contacto_parentesco'=>trim($_POST['contacto_parentesco']??'')];
+  $d=['nombres'=>trim($_POST['nombres']??''),'apellido_paterno'=>trim($_POST['apellido_paterno']??''),'apellido_materno'=>trim($_POST['apellido_materno']??''),'dni'=>trim($_POST['dni']??'')?:null,'ruc'=>trim($_POST['ruc']??'')?:null,'fecha_nacimiento'=>$_POST['fecha_nacimiento']??'' ?:null,'sexo'=>$_POST['sexo']??null,'estado_civil'=>$_POST['estado_civil']??null,'ocupacion'=>trim($_POST['ocupacion']??''),'telefono'=>trim($_POST['telefono']??''),'email'=>trim($_POST['email']??''),'direccion'=>trim($_POST['direccion']??''),'distrito'=>trim($_POST['distrito']??''),'tipo_seguro'=>$_POST['tipo_seguro']??'ninguno','num_seguro'=>trim($_POST['num_seguro']??''),'alergias'=>trim($_POST['alergias']??''),'enfermedades_base'=>trim($_POST['enfermedades_base']??''),'medicacion_actual'=>trim($_POST['medicacion_actual']??''),'cirugia_previa'=>trim($_POST['cirugia_previa']??''),'embarazo'=>isset($_POST['embarazo'])?1:0,'fuma'=>isset($_POST['fuma'])?1:0,'alcohol'=>isset($_POST['alcohol'])?1:0,'antecedentes_obs'=>trim($_POST['antecedentes_obs']??''),'contacto_nombre'=>trim($_POST['contacto_nombre']??''),'contacto_telefono'=>trim($_POST['contacto_telefono']??''),'contacto_parentesco'=>trim($_POST['contacto_parentesco']??'')];
   if($ei){
    $sets=implode(',',array_map(fn($k)=>"$k=?",array_keys($d)));
    db()->prepare("UPDATE pacientes SET $sets,updated_at=NOW() WHERE id=?")->execute([...array_values($d),$ei]);
@@ -191,7 +191,7 @@ if($accion==='lista'){
 <?php require_once __DIR__.'/../includes/footer.php';
 
 }elseif(in_array($accion,['nuevo','editar'])){
- $pac=['id'=>0,'nombres'=>'','apellido_paterno'=>'','apellido_materno'=>'','dni'=>'','fecha_nacimiento'=>'','sexo'=>'','estado_civil'=>'','ocupacion'=>'','telefono'=>'','email'=>'','direccion'=>'','distrito'=>'','tipo_seguro'=>'ninguno','num_seguro'=>'','alergias'=>'','enfermedades_base'=>'','medicacion_actual'=>'','cirugia_previa'=>'','embarazo'=>0,'fuma'=>0,'alcohol'=>0,'antecedentes_obs'=>'','contacto_nombre'=>'','contacto_telefono'=>'','contacto_parentesco'=>''];
+ $pac=['id'=>0,'nombres'=>'','apellido_paterno'=>'','apellido_materno'=>'','dni'=>'','ruc'=>'','fecha_nacimiento'=>'','sexo'=>'','estado_civil'=>'','ocupacion'=>'','telefono'=>'','email'=>'','direccion'=>'','distrito'=>'','tipo_seguro'=>'ninguno','num_seguro'=>'','alergias'=>'','enfermedades_base'=>'','medicacion_actual'=>'','cirugia_previa'=>'','embarazo'=>0,'fuma'=>0,'alcohol'=>0,'antecedentes_obs'=>'','contacto_nombre'=>'','contacto_telefono'=>'','contacto_parentesco'=>''];
  if($accion==='editar'&&$id){$s=db()->prepare("SELECT * FROM pacientes WHERE id=?");$s->execute([$id]);$pac=$s->fetch()?:$pac;}
  $titulo=$accion==='nuevo'?'Nuevo Paciente':'Editar: '.$pac['nombres'].' '.$pac['apellido_paterno'];
  $pagina_activa='pac';
@@ -201,12 +201,39 @@ if($accion==='lista'){
 <form method="POST">
  <input type="hidden" name="accion" value="guardar"><input type="hidden" name="id" value="<?=$pac['id']?>">
  <div class="card mb-4">
+  <div class="card-header"><span style="color:var(--t)"><i class="bi bi-search me-1"></i>Búsqueda por documento</span></div>
+  <div class="p-4">
+   <div class="row g-2 align-items-end">
+    <div class="col-12 col-md-3">
+     <label class="form-label">Tipo de documento</label>
+     <select id="tipoDoc" class="form-select">
+      <option value="dni">DNI (8 dígitos)</option>
+      <option value="ruc">RUC (11 dígitos)</option>
+     </select>
+    </div>
+    <div class="col-12 col-md-5">
+     <label class="form-label">Número de documento</label>
+     <input type="text" id="docInp" class="form-control" placeholder="Ingresa el número y presiona Buscar" inputmode="numeric" maxlength="11">
+    </div>
+    <div class="col-12 col-md-4">
+     <button type="button" class="btn btn-primary w-100" id="btnBuscarDoc"><i class="bi bi-search me-1"></i>Buscar en RENIEC / SUNAT</button>
+    </div>
+    <div class="col-12">
+     <small id="docMsg" style="font-size:12px"></small>
+    </div>
+   </div>
+  </div>
+ </div>
+ <input type="hidden" name="dni" id="hidDni" value="<?=e($pac['dni']??'')?>">
+ <input type="hidden" name="ruc" id="hidRuc" value="<?=e($pac['ruc']??'')?>">
+ <div class="card mb-4">
   <div class="card-header"><span style="color:var(--t)"><i class="bi bi-person-badge me-1"></i>Datos personales</span></div>
   <div class="p-4"><div class="row g-3">
-   <div class="col-12 col-md-4"><label class="form-label">Nombres *</label><input type="text" name="nombres" class="form-control" value="<?=e($pac['nombres'])?>" required></div>
+   <div class="col-12 col-md-4"><label class="form-label">Nombres / Razón social *</label><input type="text" name="nombres" class="form-control" value="<?=e($pac['nombres'])?>" required></div>
    <div class="col-12 col-md-4"><label class="form-label">Apellido paterno *</label><input type="text" name="apellido_paterno" class="form-control" value="<?=e($pac['apellido_paterno'])?>" required></div>
    <div class="col-12 col-md-4"><label class="form-label">Apellido materno</label><input type="text" name="apellido_materno" class="form-control" value="<?=e($pac['apellido_materno']??'')?>"></div>
-   <div class="col-12 col-md-3"><label class="form-label">DNI</label><input type="text" name="dni" class="form-control" value="<?=e($pac['dni']??'')?>" maxlength="15" placeholder="12345678"></div>
+   <div class="col-12 col-md-3"><label class="form-label">DNI registrado</label><input type="text" class="form-control" id="vDni" value="<?=e($pac['dni']??'')?>" readonly placeholder="(se autocompleta)"></div>
+   <div class="col-12 col-md-3"><label class="form-label">RUC registrado</label><input type="text" class="form-control" id="vRuc" value="<?=e($pac['ruc']??'')?>" readonly placeholder="(se autocompleta)"></div>
    <div class="col-12 col-md-3"><label class="form-label">Fecha nacimiento</label><input type="date" name="fecha_nacimiento" class="form-control" value="<?=$pac['fecha_nacimiento']??''?>"></div>
    <div class="col-12 col-md-3"><label class="form-label">Sexo</label>
    <select name="sexo" class="form-select"><option value="">—</option><option value="M" <?=$pac['sexo']==='M'?'selected':''?>>Masculino</option><option value="F" <?=$pac['sexo']==='F'?'selected':''?>>Femenino</option><option value="O" <?=$pac['sexo']==='O'?'selected':''?>>Otro</option></select></div>
@@ -255,5 +282,92 @@ if($accion==='lista'){
  </div>
 </form>
 </div></div>
+<script>
+(function(){
+ const API = '<?=BASE_URL?>/includes/api_documento.php';
+ const $   = (id) => document.getElementById(id);
+ const setMsg = (txt, ok) => {
+  const el = $('docMsg');
+  el.textContent = txt;
+  el.style.color = ok ? '#2ecc71' : '#e05252';
+ };
+ const inp     = $('docInp');
+ const tipoSel = $('tipoDoc');
+ const btn     = $('btnBuscarDoc');
+
+ function syncTipo(){
+  const tipo = tipoSel.value;
+  inp.maxLength = tipo === 'dni' ? 8 : 11;
+  inp.placeholder = tipo === 'dni' ? '12345678' : '20123456789';
+ }
+ tipoSel.addEventListener('change', syncTipo);
+ syncTipo();
+
+ inp.addEventListener('input', () => { inp.value = inp.value.replace(/\D/g,''); });
+ inp.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); btn.click(); }
+ });
+
+ async function consultar(){
+  const tipo = tipoSel.value;
+  const doc  = inp.value.trim();
+  const need = tipo === 'dni' ? 8 : 11;
+  if (doc.length !== need) {
+   setMsg('Ingresa exactamente ' + need + ' dígitos para ' + tipo.toUpperCase() + '.', false);
+   inp.focus();
+   return;
+  }
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Consultando...';
+  setMsg('Consultando ' + (tipo==='dni'?'RENIEC':'SUNAT') + '...', true);
+
+  let raw = '';
+  try {
+   const r = await fetch(API + '?doc=' + encodeURIComponent(doc), {
+    credentials: 'same-origin',
+    headers: {'Accept':'application/json'}
+   });
+   raw = await r.text();
+   let j;
+   try { j = JSON.parse(raw); }
+   catch (e) {
+    console.error('Respuesta no-JSON del proxy:', raw);
+    setMsg('El servidor no devolvió JSON (HTTP '+r.status+'). Revisa la consola del navegador.', false);
+    return;
+   }
+   if (!r.ok || !j.ok) {
+    setMsg((j && j.msg) ? j.msg : ('Error HTTP '+r.status), false);
+    return;
+   }
+   if (j.tipo === 'dni') {
+    document.querySelector('input[name=nombres]').value          = j.data.nombres || '';
+    document.querySelector('input[name=apellido_paterno]').value = j.data.apellido_paterno || '';
+    document.querySelector('input[name=apellido_materno]').value = j.data.apellido_materno || '';
+    $('hidDni').value = doc;
+    $('vDni').value   = doc;
+    setMsg('✓ ' + [j.data.nombres, j.data.apellido_paterno, j.data.apellido_materno].filter(Boolean).join(' '), true);
+   } else {
+    document.querySelector('input[name=nombres]').value          = j.data.razon_social || '';
+    document.querySelector('input[name=apellido_paterno]').value = '';
+    document.querySelector('input[name=apellido_materno]').value = '';
+    if (j.data.direccion) document.querySelector('input[name=direccion]').value = j.data.direccion;
+    if (j.data.distrito)  document.querySelector('input[name=distrito]').value  = j.data.distrito;
+    $('hidRuc').value = doc;
+    $('vRuc').value   = doc;
+    setMsg('✓ ' + j.data.razon_social + (j.data.estado ? ' · ' + j.data.estado : ''), true);
+   }
+  } catch (err) {
+   console.error('Fetch error:', err, 'raw:', raw);
+   setMsg('Error de red: ' + err.message, false);
+  } finally {
+   btn.disabled = false;
+   btn.innerHTML = orig;
+  }
+ }
+
+ btn.addEventListener('click', consultar);
+})();
+</script>
 <?php require_once __DIR__.'/../includes/footer.php';
 }

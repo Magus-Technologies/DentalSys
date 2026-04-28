@@ -1,10 +1,43 @@
 <?php
-// ── CONFIGURACIÓN ─────────────────────────────────────
-define('DB_HOST',    'localhost');
-define('DB_NAME',    'dental');
-define('DB_USER',    'root');
-define('DB_PASS',    'c4p1cu4$$');          // ← cambiar en producción
-define('BASE_URL',   '/dental');
+// Auto-detecta entorno (LOCAL vs PRODUCCIÓN) por hostname.
+// No hace falta cambiar nada al subir al servidor.
+
+$__host  = $_SERVER['HTTP_HOST'] ?? gethostname();
+$__isCli = PHP_SAPI === 'cli';
+$__dir   = strtolower(str_replace('\\', '/', __DIR__));
+$__isLocal = (
+    str_contains($__host, 'localhost') ||
+    str_contains($__host, '127.0.0.1') ||
+    str_contains($__host, '.test')     ||
+    str_contains($__host, '.local')    ||
+    ($__isCli && (
+        str_contains($__dir, '/laragon/') ||
+        str_contains($__dir, '/xampp/')   ||
+        str_contains($__dir, '/wamp')     ||
+        str_contains($__dir, '/mamp/')
+    ))
+);
+
+if ($__isLocal) {
+    // ════════ LOCAL (Laragon) ════════
+    define('DB_HOST',  'localhost');
+    define('DB_NAME',  'dental');
+    define('DB_USER',  'root');
+    define('DB_PASS',  '');
+    define('BASE_URL', '/DentalSys');
+    define('APP_ENV',  'development');
+    define('MIGRATIONS_TOKEN', 'dev_local_token_no_importa');
+} else {
+    // ════════ PRODUCCIÓN (magus-ecommerce.com/dental) ════════
+    define('DB_HOST',  'localhost');
+    define('DB_NAME',  'dental');
+    define('DB_USER',  'root');
+    define('DB_PASS',  'c4p1cu4$$');
+    define('BASE_URL', '/dental');
+    define('APP_ENV',  'production');
+    define('MIGRATIONS_TOKEN', 'CAMBIAR_POR_TOKEN_LARGO_Y_ALEATORIO');
+}
+
 define('UPLOAD_PATH', __DIR__ . '/../uploads/');
 define('APP_NAME',   'DentalSys');
 date_default_timezone_set('America/Lima');
@@ -57,6 +90,53 @@ function getCfg(string $k, string $d=''): string {
     static $c=[];
     if(!isset($c[$k])){$s=db()->prepare("SELECT valor FROM configuracion WHERE clave=?");$s->execute([$k]);$c[$k]=$s->fetchColumn()?:$d;}
     return $c[$k];
+}
+
+/**
+ * Devuelve datos de la empresa (single-tenant: registro id=1).
+ *   empresa()           → array completo
+ *   empresa('ruc')      → string del campo
+ *   empresa('logo',true)→ ruta absoluta web del logo (con BASE_URL); '' si no hay
+ */
+function empresa(?string $campo = null, bool $urlLogo = false) {
+    static $row = null;
+    if ($row === null) {
+        try { $row = db()->query("SELECT * FROM empresa WHERE id=1 LIMIT 1")->fetch() ?: []; }
+        catch (Exception $e) { $row = []; }
+    }
+    if ($campo === null) return $row;
+    $val = $row[$campo] ?? '';
+    if ($urlLogo && $campo === 'logo' && $val) return BASE_URL.'/uploads/'.ltrim($val, '/');
+    return $val;
+}
+
+/**
+ * Reserva el siguiente correlativo para un tipo de documento.
+ * Devuelve ['serie'=>'B001','numero'=>123,'formateado'=>'B001-00000123'] o null si no hay serie activa.
+ * Atómico: usa SELECT ... FOR UPDATE dentro de transacción.
+ */
+function siguienteCorrelativo(string $tipo, int $empresaId = 1): ?array {
+    $pdo = db();
+    $pdo->beginTransaction();
+    try {
+        $st = $pdo->prepare("SELECT id, serie, numero FROM documentos_empresa
+                             WHERE empresa_id=? AND tipo=? AND activo=1
+                             ORDER BY id ASC LIMIT 1 FOR UPDATE");
+        $st->execute([$empresaId, $tipo]);
+        $row = $st->fetch();
+        if (!$row) { $pdo->rollBack(); return null; }
+        $next = (int)$row['numero'] + 1;
+        $pdo->prepare("UPDATE documentos_empresa SET numero=? WHERE id=?")->execute([$next, $row['id']]);
+        $pdo->commit();
+        return [
+            'serie'      => $row['serie'],
+            'numero'     => $next,
+            'formateado' => $row['serie'].'-'.str_pad((string)$next, 8, '0', STR_PAD_LEFT),
+        ];
+    } catch (Throwable $e) {
+        $pdo->rollBack();
+        throw $e;
+    }
 }
 
 function genCodigo(string $pre, string $tabla, string $campo='codigo'): string {

@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/laragon/www/factura_ilidesava/**)"
+    ]
+  }
+}

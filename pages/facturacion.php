@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
 
  if ($ap==='emitir') {
   $tipo = $_POST['tipo_comprobante'] ?? 'boleta';
-  if (!in_array($tipo,['boleta','factura'],true)) { flash('error','Tipo de comprobante inválido.'); go('pages/facturacion.php'); }
+  if (!in_array($tipo,['boleta','factura','nota_venta'],true)) { flash('error','Tipo de comprobante inválido.'); go('pages/facturacion.php'); }
 
   $pac_id = (int)$_POST['paciente_id'];
   $pac = db()->prepare("SELECT * FROM pacientes WHERE id=?"); $pac->execute([$pac_id]); $pac = $pac->fetch();
@@ -59,8 +59,14 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
   $desc = max(0,(float)($_POST['descuento'] ?? 0));
   $tot  = max(0,$sub - $desc);
 
-  $serie  = $tipo==='factura' ? SUNAT_SERIE_FACTURA : SUNAT_SERIE_BOLETA;
-  $numero = SunatService::siguienteNumero(db(),$serie);
+  // Correlativo desde la tabla documentos_empresa (gestionable desde admin)
+  $cor = siguienteCorrelativo($tipo);
+  if (!$cor) {
+   flash('error','No hay serie activa para "'.$tipo.'". Configúrala en Admin → Series y Correlativos.');
+   go('pages/facturacion.php?accion=nueva&paciente_id='.$pac_id);
+  }
+  $serie  = $cor['serie'];
+  $numero = $cor['numero'];
 
   // Caja abierta (opcional, igual que pagos.php)
   $caja = db()->query("SELECT id FROM cajas WHERE estado='abierta' ORDER BY fecha_apertura DESC LIMIT 1")->fetchColumn();
@@ -69,7 +75,8 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
    $caja = db()->lastInsertId();
   }
 
-  $cod = genCodigo($tipo==='factura'?'FAC':'BOL','pagos');
+  $prefijos = ['boleta'=>'BOL', 'factura'=>'FAC', 'nota_venta'=>'NV'];
+  $cod = genCodigo($prefijos[$tipo] ?? 'DOC', 'pagos');
   db()->beginTransaction();
   try {
    db()->prepare("
@@ -97,10 +104,14 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
   }
   auditar('EMITIR_COMPROBANTE','pagos',$pid);
 
-  // Generar XML SUNAT (no envía aún)
-  $r = (new SunatService(db()))->generarXml($pid);
-  $extra = $r['ok'] ? ' · XML generado, listo para enviar.' : ' · XML falló: '.$r['mensaje'];
-  flash($r['ok']?'ok':'warn',"$cod emitido por ".mon($tot).$extra);
+  // Solo boleta/factura van a SUNAT. Nota de venta es interna.
+  if (in_array($tipo, ['boleta','factura'], true)) {
+   $r = (new SunatService(db()))->generarXml($pid);
+   $extra = $r['ok'] ? ' · XML generado, listo para enviar.' : ' · XML falló: '.$r['mensaje'];
+   flash($r['ok']?'ok':'warn',"$cod emitido por ".mon($tot).$extra);
+  } else {
+   flash('ok',"$cod (Nota de venta) emitida por ".mon($tot).' · No se envía a SUNAT.');
+  }
   go("pages/facturacion.php?accion=ver&id=$pid");
  }
 
@@ -147,6 +158,22 @@ if (in_array($accion,['xml','cdr'],true) && $id) {
  echo $bin!==false ? $bin : $v['sunat_cdr']; exit;
 }
 
+// ─── PDF (genera token público y redirige a la ruta abierta) ──────
+if ($accion==='pdf' && $id) {
+ $st = db()->prepare("SELECT pdf_token,tipo_comprobante FROM pagos WHERE id=?");
+ $st->execute([$id]); $row = $st->fetch();
+ if (!$row || !in_array($row['tipo_comprobante'],['boleta','factura','nota_venta'],true)) {
+  flash('error','Comprobante no encontrado.'); go('pages/facturacion.php');
+ }
+ $token = $row['pdf_token'];
+ if (!$token) {
+  $token = bin2hex(random_bytes(20)); // 40 chars hex
+  db()->prepare("UPDATE pagos SET pdf_token=? WHERE id=?")->execute([$token,$id]);
+ }
+ $url = BASE_URL.'/pages/comprobante_pdf.php?token='.$token.(isset($_GET['dl'])?'&dl=1':'');
+ header('Location: '.$url); exit;
+}
+
 // ─── LISTA ─────────────────────────────────────────────────────────
 if ($accion==='lista') {
  $titulo='Facturación Electrónica'; $pagina_activa='fact';
@@ -156,7 +183,7 @@ if ($accion==='lista') {
  $sun    = $_GET['sun']   ?? '';
  $q      = trim($_GET['q'] ?? '');
 
- $w = "WHERE p.tipo_comprobante IN('boleta','factura') AND DATE(p.fecha) BETWEEN ? AND ?";
+ $w = "WHERE p.tipo_comprobante IN('boleta','factura','nota_venta') AND DATE(p.fecha) BETWEEN ? AND ?";
  $pm = [$fdesde,$fhasta];
  if ($tipo)            { $w .= " AND p.tipo_comprobante=?"; $pm[]=$tipo; }
  if ($sun==='sin_xml') { $w .= " AND (p.sunat_xml IS NULL OR p.sunat_xml='')"; }
@@ -181,7 +208,7 @@ if ($accion==='lista') {
    SUM(CASE WHEN sunat_estado='pendiente'   THEN 1 ELSE 0 END) AS n_pn,
    COALESCE(SUM(CASE WHEN estado='pagado' THEN total ELSE 0 END),0) AS tot
   FROM pagos
-  WHERE tipo_comprobante IN('boleta','factura') AND DATE(fecha) BETWEEN ? AND ?
+  WHERE tipo_comprobante IN('boleta','factura','nota_venta') AND DATE(fecha) BETWEEN ? AND ?
  ");
  $kpi->execute([$fdesde,$fhasta]); $kpi = $kpi->fetch();
 
@@ -204,8 +231,9 @@ if ($accion==='lista') {
   <div class="col-6 col-md-2"><label class="form-label">Tipo</label>
    <select name="tipo" class="form-select">
     <option value="">— Todos —</option>
-    <option value="boleta"  <?=$tipo==='boleta'?'selected':''?>>Boleta</option>
-    <option value="factura" <?=$tipo==='factura'?'selected':''?>>Factura</option>
+    <option value="boleta"     <?=$tipo==='boleta'?'selected':''?>>Boleta</option>
+    <option value="factura"    <?=$tipo==='factura'?'selected':''?>>Factura</option>
+    <option value="nota_venta" <?=$tipo==='nota_venta'?'selected':''?>>Nota de venta</option>
    </select>
   </div>
   <div class="col-6 col-md-2"><label class="form-label">Estado SUNAT</label>
@@ -232,7 +260,8 @@ if ($accion==='lista') {
  ?>
   <tr>
    <td>
-    <span class="badge <?=$tc==='factura'?'bb':'bc'?>"><?=strtoupper($tc)?></span>
+    <?php $tipoBadge=['factura'=>'bb','boleta'=>'bc','nota_venta'=>'ba']; $tipoLbl=['factura'=>'FACTURA','boleta'=>'BOLETA','nota_venta'=>'N. VENTA']; ?>
+    <span class="badge <?=$tipoBadge[$tc]??'bgr'?>"><?=$tipoLbl[$tc]??strtoupper($tc)?></span>
     <div class="mon" style="font-size:12px;margin-top:2px"><?=e($pg['serie'])?>-<?=str_pad((string)$pg['numero'],8,'0',STR_PAD_LEFT)?></div>
     <small style="color:var(--t2)"><?=e($pg['codigo'])?></small>
    </td>
@@ -251,6 +280,7 @@ if ($accion==='lista') {
    <td>
     <div class="d-flex gap-1">
      <a href="?accion=ver&id=<?=$pg['id']?>" class="btn btn-dk btn-ico" title="Ver"><i class="bi bi-eye"></i></a>
+     <a href="?accion=pdf&id=<?=$pg['id']?>" target="_blank" class="btn btn-dk btn-ico" title="Imprimir / PDF"><i class="bi bi-file-earmark-pdf"></i></a>
      <?php if(!empty($pg['sunat_xml'])): ?>
       <a href="?accion=xml&id=<?=$pg['id']?>" target="_blank" class="btn btn-dk btn-ico" title="Ver XML"><i class="bi bi-file-earmark-code"></i></a>
      <?php endif; ?>
@@ -284,7 +314,7 @@ if ($accion==='lista') {
   FROM pagos p JOIN pacientes pa ON p.paciente_id=pa.id
   WHERE p.id=?");
  $st->execute([$id]); $pago = $st->fetch();
- if (!$pago || !in_array($pago['tipo_comprobante'],['boleta','factura'],true)) {
+ if (!$pago || !in_array($pago['tipo_comprobante'],['boleta','factura','nota_venta'],true)) {
   flash('error','Comprobante no encontrado.'); go('pages/facturacion.php');
  }
  $dets = db()->prepare("
@@ -405,15 +435,46 @@ if ($accion==='lista') {
    </div>
   </div>
 
+  <?php
+   // Genera token público si todavía no existe (un solo UPDATE por comprobante)
+   if (empty($pago['pdf_token'])) {
+    $pago['pdf_token'] = bin2hex(random_bytes(20));
+    db()->prepare("UPDATE pagos SET pdf_token=? WHERE id=?")->execute([$pago['pdf_token'],$id]);
+   }
+   $proto = ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS']!=='off') || (($_SERVER['SERVER_PORT']??'')=='443')) ? 'https' : 'http';
+   $host  = $_SERVER['HTTP_HOST'] ?? 'localhost';
+   $pdfUrl     = $proto.'://'.$host.BASE_URL.'/pages/comprobante_pdf.php?token='.$pago['pdf_token'];
+   $pdfUrlA4   = $pdfUrl.'&fmt=a4';
+   $pdfUrlTk   = $pdfUrl.'&fmt=ticket';
+   $pdfUrlDl   = $pdfUrl.'&fmt=a4&dl=1';
+  ?>
+  <div class="card mb-4">
+   <div class="card-header"><span><i class="bi bi-file-earmark-pdf me-1"></i>PDF · Link compartible</span></div>
+   <div class="p-3">
+    <small style="color:var(--t2);font-size:11px">Cualquiera con este link puede ver el PDF (sin login):</small>
+    <div class="input-group mt-1 mb-3">
+     <input type="text" class="form-control form-control-sm" id="pdfLink" value="<?=e($pdfUrl)?>" readonly>
+     <button type="button" class="btn btn-dk btn-sm" id="btnCopiarPdf" title="Copiar link"><i class="bi bi-clipboard"></i></button>
+    </div>
+    <div class="d-grid gap-2">
+     <div class="d-flex gap-2">
+      <a href="<?=e($pdfUrlA4)?>" target="_blank" class="btn btn-primary btn-sm flex-fill"><i class="bi bi-file-earmark me-1"></i>A4</a>
+      <a href="<?=e($pdfUrlTk)?>" target="_blank" class="btn btn-dk btn-sm flex-fill" style="border-color:rgba(0,212,238,.4);color:var(--c)"><i class="bi bi-receipt me-1"></i>Ticket 80mm</a>
+     </div>
+     <a href="<?=e($pdfUrlDl)?>" class="btn btn-dk btn-sm"><i class="bi bi-download me-1"></i>Descargar A4</a>
+     <?php if($pago['telefono']):
+      $msgPdf = "Estimado(a) *".e($pago['pac'])."*, su comprobante ".strtoupper(str_replace('_',' ',$tc))." ".$pago['serie']."-".str_pad((string)$pago['numero'],8,'0',STR_PAD_LEFT)." por *".mon((float)$pago['total'])."* está disponible aquí: ".$pdfUrlA4." — ".(empresa('razon_social') ?: getCfg('clinica_nombre','DentalSys'));
+     ?>
+     <a href="<?=urlWA($pago['telefono'],$msgPdf)?>" target="_blank" class="btn btn-wa btn-sm"><i class="bi bi-whatsapp me-1"></i>Enviar PDF por WhatsApp</a>
+     <?php endif; ?>
+    </div>
+   </div>
+  </div>
+
   <div class="card">
    <div class="card-header"><span><i class="bi bi-lightning me-1"></i>Acciones</span></div>
    <div class="p-3 d-grid gap-2">
     <a href="<?=BASE_URL?>/pages/pacientes.php?accion=ver&id=<?=$pago['paciente_id']?>" class="btn btn-dk"><i class="bi bi-person me-2"></i>Ver paciente</a>
-    <?php if($pago['estado']==='pagado' && $pago['telefono']):
-     $msg = "Estimado(a) *".e($pago['pac'])."*, le enviamos su comprobante ".strtoupper($tc)." ".$pago['serie']."-".str_pad((string)$pago['numero'],8,'0',STR_PAD_LEFT)." por *".mon((float)$pago['total'])."*. — ".getCfg('clinica_nombre','DentalSys');
-    ?>
-    <a href="<?=urlWA($pago['telefono'],$msg)?>" target="_blank" class="btn btn-wa"><i class="bi bi-whatsapp me-2"></i>Enviar por WhatsApp</a>
-    <?php endif; ?>
     <?php if($pago['estado']!=='anulado'): ?>
     <form method="POST" onsubmit="return confirm('¿Anular este comprobante? (Para SUNAT requiere nota de crédito)')">
      <input type="hidden" name="accion" value="anular"><input type="hidden" name="id" value="<?=$id?>">
@@ -422,6 +483,17 @@ if ($accion==='lista') {
     <?php endif; ?>
    </div>
   </div>
+  <script>
+   document.getElementById('btnCopiarPdf').addEventListener('click', () => {
+    const inp = document.getElementById('pdfLink');
+    inp.select(); inp.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(inp.value).then(() => {
+     const btn = document.getElementById('btnCopiarPdf');
+     const o = btn.innerHTML; btn.innerHTML = '<i class="bi bi-check2"></i>';
+     setTimeout(() => btn.innerHTML = o, 1500);
+    });
+   });
+  </script>
  </div>
 </div>
 <?php require_once __DIR__.'/../includes/footer.php';
@@ -504,7 +576,10 @@ if ($accion==='lista') {
       <label class="btn btn-dk" for="tBol"><i class="bi bi-receipt me-1"></i>Boleta</label>
       <input type="radio" class="btn-check" name="tipo_comprobante" id="tFac" value="factura">
       <label class="btn btn-dk" for="tFac"><i class="bi bi-file-earmark-text me-1"></i>Factura</label>
+      <input type="radio" class="btn-check" name="tipo_comprobante" id="tNV" value="nota_venta">
+      <label class="btn btn-dk" for="tNV"><i class="bi bi-journal-text me-1"></i>Nota venta</label>
      </div>
+     <small style="color:var(--t2);font-size:11px;display:block;margin-bottom:8px"><i class="bi bi-info-circle me-1"></i>Nota de venta: comprobante interno, no se envía a SUNAT.</small>
      <div id="warnRuc" style="display:none;font-size:11px;color:var(--a);margin-bottom:10px">
       <i class="bi bi-exclamation-triangle"></i> Factura requiere RUC del paciente.
      </div>

@@ -281,7 +281,7 @@ a:not([class]){color:var(--c)}
   <div class="sb-sec">Clínica</div>
   <a href="<?=BASE_URL?>/pages/tratamientos.php" class="<?=$p==='trat'?'act':''?>"><i class="bi bi-clipboard2-pulse-fill"></i>Tratamientos</a>
   <?php if(esRol('admin','contador','recepcion')): ?>
-  <a href="<?=BASE_URL?>/pages/pagos.php" class="<?=$p==='pagos'?'act':''?>"><i class="bi bi-cash-coin"></i>Caja y Pagos</a>
+  <a href="<?=BASE_URL?>/pages/facturacion.php" class="<?=$p==='fact'?'act':''?>"><i class="bi bi-cash-coin"></i>Facturación</a>
   <?php endif; ?>
   <a href="<?=BASE_URL?>/pages/inventario.php" class="<?=$p==='inv'?'act':''?>">
    <i class="bi bi-box-seam-fill"></i>Inventario
@@ -295,6 +295,8 @@ a:not([class]){color:var(--c)}
 
   <?php if(esRol('admin')): ?>
   <div class="sb-sec">Sistema</div>
+  <a href="<?=BASE_URL?>/pages/admin/empresa.php" class="<?=$p==='empresa'?'act':''?>"><i class="bi bi-building-fill"></i>Empresa</a>
+  <a href="<?=BASE_URL?>/pages/admin/documentos.php" class="<?=$p==='docs'?'act':''?>"><i class="bi bi-list-ol"></i>Series y Correlativos</a>
   <a href="<?=BASE_URL?>/pages/admin/usuarios.php" class="<?=$p==='usr'?'act':''?>"><i class="bi bi-person-badge-fill"></i>Usuarios / Roles</a>
   <a href="<?=BASE_URL?>/pages/admin/configuracion.php" class="<?=$p==='cfg'?'act':''?>"><i class="bi bi-gear-fill"></i>Configuración</a>
   <a href="<?=BASE_URL?>/pages/admin/auditoria.php" class="<?=$p==='audit'?'act':''?>"><i class="bi bi-shield-check-fill"></i>Auditoría SIHCE</a>
