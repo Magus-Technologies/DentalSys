@@ -1,12 +1,12 @@
 <?php
 sesion();
-if(!isset($titulo)) $titulo='DentalSys';
+if(!isset($titulo)) $titulo='DentalSys-Magus';
 if(!isset($pagina_activa)) $pagina_activa='';
 ?><!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title><?= e($titulo) ?> — DentalSys</title>
+<title>DentalSys | Magus</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -265,7 +265,7 @@ a:not([class]){color:var(--c)}
 <nav class="sb" id="sb">
  <div class="sb-brand">
   <div class="sb-logo">🦷</div>
-  <div class="sb-name">DentalSys<small>Clínica Odontológica</small></div>
+  <div class="sb-name">DentalSys-Magus<small>Clínica Odontológica</small></div>
  </div>
  <div class="sb-nav">
   <?php $r=getRol(); $p=$pagina_activa; ?>
@@ -303,7 +303,7 @@ a:not([class]){color:var(--c)}
   <?php endif; ?>
  </div>
  <div class="sb-foot">
-  <?php $u=getUsr(); ?>
+  <?php $su=getUsr(); ?>
   <div class="d-flex align-items-center gap-2 mb-1">
    <div class="ava" style="width:30px;height:30px;font-size:11px"><?=strtoupper(substr($u['nombre']??'A',0,1))?></div>
    <div><div class="sb-uname"><?=e($u['nombre']??'')?></div><div class="sb-urole"><?=e(getRol())?></div></div>

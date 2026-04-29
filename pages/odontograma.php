@@ -335,7 +335,7 @@ require_once __DIR__.'/../includes/header.php';
     // Inf Izq (31→38): posiciones a la DERECHA del centro (inferior izquierdo = mismо lado que 21-28)
     $inf_izq = [31,32,33,34,35,36,37,38];
     // Inf Der (41→48): posiciones a la IZQUIERDA del centro
-    $inf_der = [41,42,43,44,45,46,47,48];
+    $inf_der = [48,47,46,45,44,43,42,41];
 
     // Tipo de cada diente (para forma SVG)
     $tipo_diente = [
@@ -375,7 +375,7 @@ require_once __DIR__.'/../includes/header.php';
         $sup_der = [18,17,16,15,14,13,12,11];
         $sup_izq = [21,22,23,24,25,26,27,28];
         $inf_izq = [31,32,33,34,35,36,37,38];
-        $inf_der = [41,42,43,44,45,46,47,48];
+        $inf_der = [48,47,46,45,44,43,42,41];
         
         if (in_array($num, $sup_der)) {
             $idx = array_search($num, array_reverse($sup_der));

@@ -98,21 +98,7 @@ if($accion==='lista'){
  $topbar_act='<a href="'.BASE_URL.'/pages/pacientes.php?accion=ver&id='.$hc['pid'].'" class="btn btn-dk btn-sm"><i class="bi bi-person me-1"></i>Paciente</a>
  <a href="?accion=editar&id='.$id.'" class="btn btn-dk btn-sm"><i class="bi bi-pencil me-1"></i>Editar HC</a>
  <a href="'.BASE_URL.'/pages/hc_pdf.php?id='.$id.'" target="_blank" class="btn btn-primary btn-sm"><i class="bi bi-file-pdf me-1"></i>Ver / Imprimir PDF</a>';
- $xhead = '<style>
-@media(max-width:768px){
-  /* HC tabs scroll on mobile */
-  .nav-tabs-scroll{padding-bottom:2px}
-  /* Evolution timeline compact */
-  .evolucion-item{padding:10px 12px!important}
-  .evol-header{flex-wrap:wrap;gap:4px}
-  /* Adjuntos grid */
-  .adj-grid .col-12{width:50%}
-}
-@media(max-width:480px){
-  .adj-grid .col-12{width:100%}
-}
-</style>';
-require_once __DIR__.'/../includes/header.php';
+ require_once __DIR__.'/../includes/header.php';
 ?>
 <?php if($hc['alergias']): ?>
 <div class="alert-bar alert-bar-r mb-4"><div class="d-flex align-items-center gap-2"><span>⚠️</span><strong style="color:var(--r)">ALERGIAS:</strong><span><?=e($hc['alergias'])?></span></div></div>
