@@ -502,7 +502,7 @@ if ($accion==='lista') {
 } elseif ($accion==='nueva') {
  $titulo='Nueva emisión'; $pagina_activa='fact';
  $pac_id = (int)($_GET['paciente_id'] ?? 0);
- $pacs = db()->query("SELECT id,codigo,nombres,apellido_paterno,dni,ruc FROM pacientes WHERE activo=1 ORDER BY apellido_paterno LIMIT 500")->fetchAll();
+ $pacs = db()->query("SELECT id,codigo,nombres,apellido_paterno,apellido_materno,dni,ruc,telefono FROM pacientes WHERE activo=1 ORDER BY apellido_paterno LIMIT 1000")->fetchAll();
  $pac_pre = null;
  if ($pac_id) { $s=db()->prepare("SELECT * FROM pacientes WHERE id=?"); $s->execute([$pac_id]); $pac_pre=$s->fetch(); }
  $invs  = db()->query("SELECT id,codigo,nombre,unidad,stock_actual,precio_costo FROM inventario WHERE activo=1 AND stock_actual>0 ORDER BY nombre LIMIT 800")->fetchAll();
@@ -528,14 +528,16 @@ if ($accion==='lista') {
       </div>
      <?php else: ?>
       <label class="form-label">Paciente *</label>
-      <select name="paciente_id" id="selPac" class="form-select" required>
-       <option value="">— Seleccionar —</option>
-       <?php foreach($pacs as $p): ?>
-        <option value="<?=$p['id']?>" data-dni="<?=e($p['dni']?:'')?>" data-ruc="<?=e($p['ruc']?:'')?>">
-         <?=e($p['nombres'].' '.$p['apellido_paterno'])?> — DNI <?=e($p['dni']?:'sin DNI')?><?=$p['ruc']?' · RUC '.e($p['ruc']):''?>
-        </option>
-       <?php endforeach; ?>
-      </select>
+      <input type="hidden" name="paciente_id" id="selPac" required>
+      <div class="d-flex gap-2">
+       <input type="text" id="pacDisplay" class="form-control" placeholder="Ningún paciente seleccionado" readonly>
+       <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalPac">
+        <i class="bi bi-search me-1"></i>Buscar paciente
+       </button>
+       <a href="<?=BASE_URL?>/pages/pacientes.php?accion=nuevo" target="_blank" class="btn btn-dk" title="Crear nuevo paciente en otra pestaña">
+        <i class="bi bi-person-plus"></i>
+       </a>
+      </div>
       <div id="pacInfo" class="mt-2" style="font-size:12px;color:var(--t2)"></div>
      <?php endif; ?>
     </div>
@@ -624,6 +626,55 @@ if ($accion==='lista') {
   </div>
  </div>
 </form>
+
+<?php if(!$pac_pre): ?>
+<!-- MODAL Buscar Paciente -->
+<div class="modal fade" id="modalPac" tabindex="-1" aria-hidden="true">
+ <div class="modal-dialog modal-lg modal-dialog-scrollable">
+  <div class="modal-content" style="background:var(--bg2);border:1px solid var(--bd2)">
+   <div class="modal-header" style="border-bottom:1px solid var(--bd2)">
+    <h5 class="modal-title" style="color:var(--t)"><i class="bi bi-search me-2"></i>Buscar paciente</h5>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+   </div>
+   <div class="modal-body p-3">
+    <div class="d-flex gap-2 mb-3">
+     <input type="text" id="pacFiltro" class="form-control" placeholder="Buscar por nombre, DNI, RUC, código o teléfono..." autofocus>
+     <a href="<?=BASE_URL?>/pages/pacientes.php?accion=nuevo" target="_blank" class="btn btn-ok" title="Crear nuevo paciente">
+      <i class="bi bi-plus-lg"></i> Nuevo
+     </a>
+    </div>
+    <small style="color:var(--t2);font-size:11px"><i class="bi bi-info-circle me-1"></i><span id="pacContador"><?=count($pacs)?></span> pacientes</small>
+    <div class="table-responsive mt-2" style="max-height:55vh">
+     <table class="table mb-0">
+      <thead><tr><th>Código</th><th>Paciente</th><th>DNI</th><th>RUC</th><th>Teléfono</th><th></th></tr></thead>
+      <tbody id="pacTbody">
+       <?php foreach($pacs as $p): ?>
+       <tr class="pac-row" style="cursor:pointer"
+         data-id="<?=$p['id']?>"
+         data-dni="<?=e($p['dni']?:'')?>"
+         data-ruc="<?=e($p['ruc']?:'')?>"
+         data-nombre="<?=e(trim($p['nombres'].' '.$p['apellido_paterno'].' '.($p['apellido_materno']??'')))?>"
+         data-search="<?=e(strtolower(trim($p['nombres'].' '.$p['apellido_paterno'].' '.($p['apellido_materno']??'').' '.($p['dni']??'').' '.($p['ruc']??'').' '.$p['codigo'].' '.($p['telefono']??''))))?>">
+        <td><small class="mon" style="color:var(--c);font-size:11px"><?=e($p['codigo'])?></small></td>
+        <td><strong><?=e(trim($p['nombres'].' '.$p['apellido_paterno']))?></strong><?php if($p['apellido_materno']): ?> <?=e($p['apellido_materno'])?><?php endif; ?></td>
+        <td><small><?=e($p['dni']?:'—')?></small></td>
+        <td><small><?=e($p['ruc']?:'—')?></small></td>
+        <td><small><?=e($p['telefono']?:'—')?></small></td>
+        <td><button type="button" class="btn btn-primary btn-sm pac-pick"><i class="bi bi-check2-circle me-1"></i>Seleccionar</button></td>
+       </tr>
+       <?php endforeach; ?>
+      </tbody>
+     </table>
+     <div id="pacEmpty" class="text-center py-4" style="color:var(--t2);display:none">
+      <i class="bi bi-inbox" style="font-size:32px;display:block;margin-bottom:6px"></i>
+      No se encontraron pacientes con ese criterio.
+     </div>
+    </div>
+   </div>
+  </div>
+ </div>
+</div>
+<?php endif; ?>
 
 <datalist id="invList">
  <?php foreach($invs as $iv): ?>
@@ -735,25 +786,60 @@ function recalc(){
 }
 (function init(){
  addRow();
- const sel=document.getElementById("selPac");
- const info=document.getElementById("pacInfo");
- const warn=document.getElementById("warnRuc");
- const tFac=document.getElementById("tFac");
- const btn=document.getElementById("btnEmitir");
- const labels={
+ const selPac = document.getElementById("selPac");        // hidden con paciente_id
+ const display= document.getElementById("pacDisplay");    // input visible readonly
+ const info   = document.getElementById("pacInfo");
+ const warn   = document.getElementById("warnRuc");
+ const tFac   = document.getElementById("tFac");
+ const btn    = document.getElementById("btnEmitir");
+ const labels = {
   boleta:    \'<i class="bi bi-send-check me-2"></i>Emitir Boleta y generar XML\',
   factura:   \'<i class="bi bi-send-check me-2"></i>Emitir Factura y generar XML\',
   nota_venta:\'<i class="bi bi-journal-check me-2"></i>Emitir Nota de Venta\'
  };
+ // Datos del paciente actualmente seleccionado
+ let pacSel = { id:"", dni:"", ruc:"", nombre:"" };
+
  function refresh(){
-  const o = sel ? sel.options[sel.selectedIndex] : null;
-  const ruc = o ? o.dataset.ruc : "";
-  if(info) info.textContent = o && o.value ? ("DNI: "+(o.dataset.dni||"—")+" · RUC: "+(ruc||"sin RUC")) : "";
-  if(warn) warn.style.display = (tFac && tFac.checked && !ruc) ? "block" : "none";
-  const sel2 = document.querySelector("input[name=tipo_comprobante]:checked");
-  if(btn && sel2) btn.innerHTML = labels[sel2.value] || labels.boleta;
+  if(info) info.textContent = pacSel.id ? ("DNI: "+(pacSel.dni||"—")+" · RUC: "+(pacSel.ruc||"sin RUC")) : "";
+  if(warn) warn.style.display = (tFac && tFac.checked && pacSel.id && !pacSel.ruc) ? "block" : "none";
+  const tipoSel = document.querySelector("input[name=tipo_comprobante]:checked");
+  if(btn && tipoSel) btn.innerHTML = labels[tipoSel.value] || labels.boleta;
  }
- if(sel) sel.addEventListener("change", refresh);
+
+ // Buscador del modal
+ const filtro = document.getElementById("pacFiltro");
+ const tbody  = document.getElementById("pacTbody");
+ const empty  = document.getElementById("pacEmpty");
+ const counter= document.getElementById("pacContador");
+ if(filtro && tbody){
+  filtro.addEventListener("input", () => {
+   const q = filtro.value.toLowerCase().trim();
+   let visibles = 0;
+   tbody.querySelectorAll(".pac-row").forEach(tr => {
+    const match = !q || tr.dataset.search.includes(q);
+    tr.style.display = match ? "" : "none";
+    if(match) visibles++;
+   });
+   if(counter) counter.textContent = visibles;
+   if(empty) empty.style.display = visibles ? "none" : "block";
+  });
+  // Click en fila o en botón seleccionar
+  tbody.addEventListener("click", (e) => {
+   const tr = e.target.closest(".pac-row");
+   if(!tr) return;
+   pacSel = { id: tr.dataset.id, dni: tr.dataset.dni, ruc: tr.dataset.ruc, nombre: tr.dataset.nombre };
+   if(selPac)  selPac.value  = pacSel.id;
+   if(display) display.value = pacSel.nombre + (pacSel.dni ? " (DNI "+pacSel.dni+")" : "") + (pacSel.ruc ? " (RUC "+pacSel.ruc+")" : "");
+   refresh();
+   const modalEl = document.getElementById("modalPac");
+   if(modalEl){
+    const m = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+    m.hide();
+   }
+  });
+ }
+
  document.querySelectorAll("input[name=tipo_comprobante]").forEach(r=>r.addEventListener("change", refresh));
  refresh();
 })();
