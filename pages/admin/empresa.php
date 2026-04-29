@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__.'/../../includes/config.php';
+require_once __DIR__.'/../../includes/config_sunat.php';
 requiereRol('admin');
 
 $titulo = 'Empresa';
@@ -32,7 +33,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'modo'               => in_array($_POST['modo'] ?? '', ['produccion','beta'], true) ? $_POST['modo'] : 'beta',
             'sunat_usuario_sol'  => trim($_POST['sunat_usuario_sol'] ?? ''),
             'sunat_clave_sol'    => trim($_POST['sunat_clave_sol'] ?? ''),
-            'sunat_api_url'      => rtrim(trim($_POST['sunat_api_url'] ?? ''), '/'),
         ];
 
         if (strlen($d['ruc']) !== 11) {
@@ -83,11 +83,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('error', 'Primero guarda un RUC válido (11 dígitos) antes de subir el certificado.');
             go('pages/admin/empresa.php');
         }
-        $apiUrl = trim($emp['sunat_api_url'] ?? '');
-        if ($apiUrl === '') {
-            flash('error', 'Configura la URL del API SUNAT antes de subir el certificado.');
-            go('pages/admin/empresa.php');
-        }
+        // URL del API auto-detectada en config_sunat.php (local vs producción)
+        $apiUrl = SUNAT_API_URL;
         if (empty($_FILES['pem']['name']) || $_FILES['pem']['error'] !== UPLOAD_ERR_OK) {
             flash('error', 'Selecciona un archivo .pem válido.');
             go('pages/admin/empresa.php');
@@ -293,11 +290,6 @@ require_once __DIR__.'/../../includes/header.php';
        <label class="form-label">Clave SOL</label>
        <input type="password" name="sunat_clave_sol" value="<?=e($emp['sunat_clave_sol'] ?? '')?>" class="form-control" maxlength="45" placeholder="••••••••">
        <small style="color:var(--t2);font-size:11px">Para BETA usa <code>MODDATOS</code></small>
-      </div>
-      <div class="col-12">
-       <label class="form-label">URL del API SUNAT (Laravel firmador)</label>
-       <input type="url" name="sunat_api_url" value="<?=e($emp['sunat_api_url'] ?? '')?>" class="form-control" placeholder="http://api-sunat-laravel.test/api/v1">
-       <small style="color:var(--t2);font-size:11px">Local: <code>http://api-sunat-laravel.test/api/v1</code> · Producción: <code>http://84.247.162.204/api-sunat-laravel/api/v1</code></small>
       </div>
      </div>
     </div>
