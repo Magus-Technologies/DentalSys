@@ -41,6 +41,14 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   $hci=db()->query("SELECT hc_id FROM planes_tratamiento WHERE id=$pid")->fetchColumn();
   go("pages/historia_clinica.php?id=$hci#tpl");
  }
+ if($ap==='eliminar_trat'){
+  $tid=(int)$_POST['id'];
+  // Soft delete: marca como inactivo (preserva integridad referencial con planes existentes)
+  db()->prepare("UPDATE tratamientos_catalogo SET activo=0 WHERE id=?")->execute([$tid]);
+  auditar('ELIMINAR_TRATAMIENTO','tratamientos_catalogo',$tid);
+  flash('ok','Tratamiento eliminado del catálogo.');
+  go('pages/tratamientos.php');
+ }
 }
 
 if($accion==='catalogo'){
@@ -70,7 +78,16 @@ if($accion==='catalogo'){
   <td><span class="badge" style="background:<?=$t['cat_col']??'#607080'?>22;color:<?=$t['cat_col']??'#A0B0C0'?>;border:1px solid <?=$t['cat_col']??'#607080'?>44"><?=e($t['cat_nm']??'—')?></span></td>
   <td class="mon fw-bold"><?=mon((float)$t['precio_base'])?></td>
   <td><small><?=$t['duracion_min']?> min</small></td>
-  <td><a href="?accion=editar_trat&id=<?=$t['id']?>" class="btn btn-dk btn-ico"><i class="bi bi-pencil"></i></a></td>
+  <td>
+   <div class="d-flex gap-1">
+    <a href="?accion=editar_trat&id=<?=$t['id']?>" class="btn btn-dk btn-ico" title="Editar"><i class="bi bi-pencil"></i></a>
+    <form method="POST" class="d-inline" onsubmit="return confirm('¿Eliminar el tratamiento &quot;<?=e($t['nombre'])?>&quot; del catálogo?\n\nQuedará oculto pero los planes que lo usan seguirán funcionando.')">
+     <input type="hidden" name="accion" value="eliminar_trat">
+     <input type="hidden" name="id" value="<?=$t['id']?>">
+     <button type="submit" class="btn btn-del btn-ico" title="Eliminar"><i class="bi bi-trash"></i></button>
+    </form>
+   </div>
+  </td>
  </tr>
  <?php endforeach; ?>
  </tbody>

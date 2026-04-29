@@ -239,6 +239,15 @@ if ($accion === 'lista') {
                         <a href="?accion=ver&id=<?= $u['id'] ?>" class="btn btn-dk btn-ico" title="Ver perfil">
                             <i class="bi bi-eye"></i>
                         </a>
+                        <?php if ($u['id'] !== ($_SESSION['uid'] ?? 0)): ?>
+                        <form method="POST" class="d-inline" onsubmit="return confirm('<?= $u['activo'] ? '¿Desactivar' : '¿Activar' ?> a <?= e($u['nombre'].' '.$u['apellidos']) ?>?')">
+                            <input type="hidden" name="accion" value="toggle">
+                            <input type="hidden" name="uid" value="<?= $u['id'] ?>">
+                            <button type="submit" class="btn btn-ico <?= $u['activo'] ? 'btn-del' : 'btn-ok' ?>" title="<?= $u['activo'] ? 'Desactivar' : 'Activar' ?> usuario">
+                                <i class="bi bi-<?= $u['activo'] ? 'slash-circle' : 'check-circle' ?>"></i>
+                            </button>
+                        </form>
+                        <?php endif; ?>
                     </div>
                 </td>
             </tr>
@@ -439,8 +448,12 @@ if ($accion === 'lista') {
                             <input type="text" name="apellidos" class="form-control" value="<?= e($usr['apellidos']) ?>" required placeholder="Ej: Mendoza Ríos">
                         </div>
                         <div class="col-12 col-md-4">
-                            <label class="form-label">DNI</label>
-                            <input type="text" name="dni" class="form-control" value="<?= e($usr['dni']??'') ?>" maxlength="15" placeholder="12345678">
+                            <label class="form-label">DNI <small style="color:var(--t2)">(8 dígitos)</small></label>
+                            <div class="input-group">
+                                <input type="text" id="dniInp" name="dni" class="form-control" value="<?= e($usr['dni']??'') ?>" maxlength="8" placeholder="12345678" inputmode="numeric">
+                                <button type="button" class="btn btn-dk" id="btnBuscarDni" title="Consultar RENIEC"><i class="bi bi-search"></i></button>
+                            </div>
+                            <small id="dniMsg" style="font-size:11px"></small>
                         </div>
                         <div class="col-12 col-md-4">
                             <label class="form-label">Teléfono</label>
@@ -607,6 +620,41 @@ document.addEventListener('DOMContentLoaded', () => {
     if (checked) seleccionarRol(parseInt(checked.value));
 });
 
+// Buscador DNI con RENIEC (autocompleta nombres y apellidos)
+(function(){
+    const dniInp = document.getElementById('dniInp');
+    const btn    = document.getElementById('btnBuscarDni');
+    const msgEl  = document.getElementById('dniMsg');
+    if (!dniInp || !btn) return;
+
+    const setMsg = (txt, ok) => { msgEl.textContent = txt; msgEl.style.color = ok ? '#2ecc71' : '#e05252'; };
+    dniInp.addEventListener('input', () => { dniInp.value = dniInp.value.replace(/\D/g,''); });
+    dniInp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); btn.click(); } });
+
+    btn.addEventListener('click', async () => {
+        const doc = dniInp.value.trim();
+        if (doc.length !== 8) { setMsg('Ingrese 8 dígitos.', false); dniInp.focus(); return; }
+        const orig = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        setMsg('Consultando RENIEC...', true);
+        try {
+            const r = await fetch('BASEURL/includes/api_documento.php?doc=' + doc, { credentials:'same-origin' });
+            const txt = await r.text();
+            let j; try { j = JSON.parse(txt); } catch(e){ setMsg('Respuesta inesperada (HTTP '+r.status+').', false); return; }
+            if (!r.ok || !j.ok || j.tipo !== 'dni') { setMsg(j.msg || 'No encontrado.', false); return; }
+            document.querySelector('input[name="nombre"]').value    = j.data.nombres || '';
+            document.querySelector('input[name="apellidos"]').value = ((j.data.apellido_paterno||'') + ' ' + (j.data.apellido_materno||'')).trim();
+            setMsg('✓ ' + [j.data.nombres, j.data.apellido_paterno, j.data.apellido_materno].filter(Boolean).join(' '), true);
+        } catch (err) {
+            setMsg('Error de red: ' + err.message, false);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = orig;
+        }
+    });
+})();
+
 // Validación del form antes de enviar
 document.getElementById('fUsuario').addEventListener('submit', function(e) {
     const p = document.getElementById('passInp').value;
@@ -627,5 +675,6 @@ document.getElementById('fUsuario').addEventListener('submit', function(e) {
 });
 </script>
 JSEOF;
+$xscript = str_replace('BASEURL', BASE_URL, $xscript);
 require_once __DIR__.'/../../includes/footer.php';
 }
