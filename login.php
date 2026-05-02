@@ -11,6 +11,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
    $_SESSION['uid']=$u['id'];
    $_SESSION['usr']=['id'=>$u['id'],'nombre'=>$u['nombre'].' '.$u['apellidos'],'email'=>$u['email']];
    $_SESSION['rol']=$u['rol'];
+   $_SESSION['rol_id']=(int)$u['rol_id'];
    db()->prepare("UPDATE usuarios SET ultimo_acceso=NOW() WHERE id=?")->execute([$u['id']]);
    auditar('LOGIN','usuarios',$u['id']);
    go('index.php');

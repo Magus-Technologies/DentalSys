@@ -269,35 +269,44 @@ a:not([class]){color:var(--c)}
  </div>
  <div class="sb-nav">
   <?php $r=getRol(); $p=$pagina_activa; ?>
+  <?php if(puedeVer('dashboard')): ?>
   <div class="sb-sec">Principal</div>
   <a href="<?=BASE_URL?>/index.php" class="<?=$p==='dash'?'act':''?>"><i class="bi bi-grid-fill"></i>Dashboard</a>
-
-  <div class="sb-sec">Atención</div>
-  <a href="<?=BASE_URL?>/pages/pacientes.php" class="<?=$p==='pac'?'act':''?>"><i class="bi bi-people-fill"></i>Pacientes</a>
-  <a href="<?=BASE_URL?>/pages/citas.php" class="<?=$p==='citas'?'act':''?>"><i class="bi bi-calendar2-week-fill"></i>Agenda / Citas</a>
-  <a href="<?=BASE_URL?>/pages/historia_clinica.php" class="<?=$p==='hc'?'act':''?>"><i class="bi bi-file-medical-fill"></i>Historia Clínica</a>
-  <a href="<?=BASE_URL?>/pages/odontograma.php" class="<?=$p==='odont'?'act':''?>"><i class="bi bi-grid-3x3-gap-fill"></i>Odontograma</a>
-
-  <div class="sb-sec">Clínica</div>
-  <a href="<?=BASE_URL?>/pages/tratamientos.php" class="<?=$p==='trat'?'act':''?>"><i class="bi bi-clipboard2-pulse-fill"></i>Tratamientos</a>
-  <?php if(esRol('admin','contador','recepcion')): ?>
-  <a href="<?=BASE_URL?>/pages/facturacion.php" class="<?=$p==='fact'?'act':''?>"><i class="bi bi-cash-coin"></i>Facturación</a>
   <?php endif; ?>
+
+  <?php if(puedeVer('pacientes')||puedeVer('citas')||puedeVer('historia_clinica')||puedeVer('odontograma')): ?>
+  <div class="sb-sec">Atención</div>
+  <?php if(puedeVer('pacientes')): ?><a href="<?=BASE_URL?>/pages/pacientes.php" class="<?=$p==='pac'?'act':''?>"><i class="bi bi-people-fill"></i>Pacientes</a><?php endif; ?>
+  <?php if(puedeVer('citas')): ?><a href="<?=BASE_URL?>/pages/citas.php" class="<?=$p==='citas'?'act':''?>"><i class="bi bi-calendar2-week-fill"></i>Agenda / Citas</a><?php endif; ?>
+  <?php if(puedeVer('historia_clinica')): ?><a href="<?=BASE_URL?>/pages/historia_clinica.php" class="<?=$p==='hc'?'act':''?>"><i class="bi bi-file-medical-fill"></i>Historia Clínica</a><?php endif; ?>
+  <?php if(puedeVer('odontograma')): ?><a href="<?=BASE_URL?>/pages/odontograma.php" class="<?=$p==='odont'?'act':''?>"><i class="bi bi-grid-3x3-gap-fill"></i>Odontograma</a><?php endif; ?>
+  <?php endif; ?>
+
+  <?php if(puedeVer('tratamientos')||puedeVer('facturacion')||puedeVer('inventario')||puedeVer('notificaciones')||puedeVer('turnos')): ?>
+  <div class="sb-sec">Clínica</div>
+  <?php if(puedeVer('tratamientos')): ?><a href="<?=BASE_URL?>/pages/tratamientos.php" class="<?=$p==='trat'?'act':''?>"><i class="bi bi-clipboard2-pulse-fill"></i>Tratamientos</a><?php endif; ?>
+  <?php if(puedeVer('facturacion')): ?><a href="<?=BASE_URL?>/pages/facturacion.php" class="<?=$p==='fact'?'act':''?>"><i class="bi bi-cash-coin"></i>Facturación</a><?php endif; ?>
+  <?php if(puedeVer('inventario')): ?>
   <a href="<?=BASE_URL?>/pages/inventario.php" class="<?=$p==='inv'?'act':''?>">
    <i class="bi bi-box-seam-fill"></i>Inventario
    <?php try{$si=db()->query("SELECT COUNT(*) FROM inventario WHERE stock_actual<=stock_minimo AND activo=1")->fetchColumn();if($si>0) echo "<span class='nb'>$si</span>";}catch(Exception $e){} ?>
   </a>
-  <a href="<?=BASE_URL?>/pages/notificaciones.php" class="<?=$p==='notif'?'act':''?>"><i class="bi bi-whatsapp"></i>WhatsApp / Notif.</a>
-  <a href="<?=BASE_URL?>/pages/turnos.php" class="<?=$p==='turnos'?'act':''?>"><i class="bi bi-display"></i>Pantalla Turnos</a>
+  <?php endif; ?>
+  <?php if(puedeVer('notificaciones')): ?><a href="<?=BASE_URL?>/pages/notificaciones.php" class="<?=$p==='notif'?'act':''?>"><i class="bi bi-whatsapp"></i>WhatsApp / Notif.</a><?php endif; ?>
+  <?php if(puedeVer('turnos')): ?><a href="<?=BASE_URL?>/pages/turnos.php" class="<?=$p==='turnos'?'act':''?>"><i class="bi bi-display"></i>Pantalla Turnos</a><?php endif; ?>
+  <?php endif; ?>
 
+  <?php if(puedeVer('reportes')): ?>
   <div class="sb-sec">Reportes</div>
   <a href="<?=BASE_URL?>/pages/reportes.php" class="<?=$p==='rep'?'act':''?>"><i class="bi bi-bar-chart-fill"></i>Reportes</a>
+  <?php endif; ?>
 
   <?php if(esRol('admin')): ?>
   <div class="sb-sec">Sistema</div>
   <a href="<?=BASE_URL?>/pages/admin/empresa.php" class="<?=$p==='empresa'?'act':''?>"><i class="bi bi-building-fill"></i>Empresa</a>
   <a href="<?=BASE_URL?>/pages/admin/documentos.php" class="<?=$p==='docs'?'act':''?>"><i class="bi bi-list-ol"></i>Series y Correlativos</a>
   <a href="<?=BASE_URL?>/pages/admin/usuarios.php" class="<?=$p==='usr'?'act':''?>"><i class="bi bi-person-badge-fill"></i>Usuarios / Roles</a>
+  <a href="<?=BASE_URL?>/pages/admin/roles.php" class="<?=$p==='roles'?'act':''?>"><i class="bi bi-shield-lock-fill"></i>Permisos por Rol</a>
   <a href="<?=BASE_URL?>/pages/admin/configuracion.php" class="<?=$p==='cfg'?'act':''?>"><i class="bi bi-gear-fill"></i>Configuración</a>
   <a href="<?=BASE_URL?>/pages/admin/auditoria.php" class="<?=$p==='audit'?'act':''?>"><i class="bi bi-shield-check-fill"></i>Auditoría SIHCE</a>
   <?php endif; ?>
