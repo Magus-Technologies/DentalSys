@@ -79,12 +79,13 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
   $cod = genCodigo($prefijos[$tipo] ?? 'DOC', 'pagos');
   db()->beginTransaction();
   try {
+   $aplica_igv = isset($_POST['aplica_igv']) && $_POST['aplica_igv'] === '0' ? 0 : 1;
    db()->prepare("
-    INSERT INTO pagos(codigo,paciente_id,caja_id,fecha,subtotal,descuento,total,metodo,referencia,
+    INSERT INTO pagos(codigo,paciente_id,caja_id,fecha,subtotal,descuento,aplica_igv,total,metodo,referencia,
                       tipo_comprobante,serie,numero,estado,notas,created_by)
-    VALUES(?,?,?,NOW(),?,?,?,?,?,?,?,?,'pagado',?,?)
+    VALUES(?,?,?,NOW(),?,?,?,?,?,?,?,?,?,'pagado',?,?)
    ")->execute([
-    $cod,$pac_id,$caja,$sub,$desc,$tot,
+    $cod,$pac_id,$caja,$sub,$desc,$aplica_igv,$tot,
     $_POST['metodo']??'efectivo',$_POST['referencia']??'',
     $tipo,$serie,$numero,trim($_POST['notas']??''),$_SESSION['uid']
    ]);
@@ -357,6 +358,10 @@ if ($accion==='lista') {
       <div class="mon"><?=fDT($pago['fecha'])?></div>
       <small style="color:var(--t2)">Código interno</small>
       <div class="mon" style="color:var(--c);font-size:11px"><?=e($pago['codigo'])?></div>
+      <?php if(isset($pago['aplica_igv'])): ?>
+      <small style="color:var(--t2)">IGV</small>
+      <div><span class="badge <?=$pago['aplica_igv']?'bc':'bpu'?>"><?=$pago['aplica_igv']?'INCLUIDO (18%)':'EXONERADO / INAFECTO'?></span></div>
+      <?php endif; ?>
      </div>
     </div>
 
@@ -379,20 +384,26 @@ if ($accion==='lista') {
      </tbody>
     </table></div>
 
-    <div class="mt-3 p-3 rounded" style="background:var(--bg3)">
-     <div class="d-flex justify-content-between"><span style="color:var(--t2)">Subtotal</span><span class="mon"><?=mon((float)$pago['subtotal'])?></span></div>
-     <?php if($pago['descuento']>0): ?>
-      <div class="d-flex justify-content-between"><span style="color:var(--g)">Descuento</span><span class="mon" style="color:var(--g)">-<?=mon((float)$pago['descuento'])?></span></div>
-     <?php endif; ?>
-     <hr>
-     <div class="d-flex justify-content-between align-items-center">
-      <strong>TOTAL</strong>
-      <span class="mon fw-bold" style="font-size:24px;color:var(--c)"><?=mon((float)$pago['total'])?></span>
+     <div class="mt-3 p-3 rounded" style="background:var(--bg3)">
+      <div class="d-flex justify-content-between"><span style="color:var(--t2)">Subtotal</span><span class="mon"><?=mon((float)$pago['subtotal'])?></span></div>
+      <?php if($pago['descuento']>0): ?>
+       <div class="d-flex justify-content-between"><span style="color:var(--g)">Descuento</span><span class="mon" style="color:var(--g)">-<?=mon((float)$pago['descuento'])?></span></div>
+      <?php endif; ?>
+      <?php if(!empty($pago['aplica_igv'])): ?>
+      <div class="d-flex justify-content-between"><span style="color:var(--t2)">Op. Gravada</span><span class="mon"><?=mon(round((float)$pago['total']/1.18,2))?></span></div>
+      <div class="d-flex justify-content-between"><span style="color:var(--t2)">IGV (18%)</span><span class="mon"><?=mon(round((float)$pago['total']-((float)$pago['total']/1.18),2))?></span></div>
+      <?php else: ?>
+      <div class="d-flex justify-content-between"><span style="color:var(--t2)">Op. Inafecta/Exonerada</span><span class="mon"><?=mon((float)$pago['total'])?></span></div>
+      <?php endif; ?>
+      <hr>
+      <div class="d-flex justify-content-between align-items-center">
+       <strong>TOTAL</strong>
+       <span class="mon fw-bold" style="font-size:24px;color:var(--c)"><?=mon((float)$pago['total'])?></span>
+      </div>
+      <div class="mt-2"><span class="badge bgr"><?=strtoupper($pago['metodo'])?></span>
+       <?php if($pago['referencia']): ?><small style="color:var(--t2);margin-left:8px">Ref: <?=e($pago['referencia'])?></small><?php endif; ?>
+      </div>
      </div>
-     <div class="mt-2"><span class="badge bgr"><?=strtoupper($pago['metodo'])?></span>
-      <?php if($pago['referencia']): ?><small style="color:var(--t2);margin-left:8px">Ref: <?=e($pago['referencia'])?></small><?php endif; ?>
-     </div>
-    </div>
     <?php if($pago['notas']): ?><div class="mt-3" style="color:var(--t2);font-size:12px"><?=e($pago['notas'])?></div><?php endif; ?>
    </div>
   </div>
@@ -559,21 +570,31 @@ if ($accion==='lista') {
      </div>
     </div>
     <div class="p-4">
-     <small style="color:var(--t2);font-size:11px;display:block;margin-bottom:8px"><i class="bi bi-info-circle me-1"></i>Los precios ya incluyen IGV (18%). Se desglosa automáticamente en el comprobante.</small>
+     <small style="color:var(--t2);font-size:11px;display:block;margin-bottom:8px" id="igvHint"><i class="bi bi-info-circle me-1"></i>Los precios ya incluyen IGV (18%). Se desglosa automáticamente en el comprobante.</small>
      <div class="table-responsive"><table class="table mb-0" id="tbl">
       <thead><tr><th style="min-width:280px">Producto / Servicio</th><th>Cant.</th><th>Precio</th><th>Subtotal</th><th></th></tr></thead>
       <tbody id="tb"></tbody>
      </table></div>
-     <div class="mt-3 p-3 rounded" style="background:var(--bg3)">
-      <div class="d-flex justify-content-between mb-2">
-       <span style="color:var(--t2)">Descuento S/</span>
-       <input type="number" name="descuento" id="desc" value="0" step="0.01" min="0" class="form-control form-control-sm text-end" style="width:120px" oninput="recalc()">
+      <div class="mt-3 p-3 rounded" style="background:var(--bg3)">
+       <div id="igvBreakdown">
+        <div class="d-flex justify-content-between mb-1">
+         <span style="color:var(--t2);font-size:12px">Op. Gravada</span>
+         <span class="mon" style="font-size:12px" id="grav">S/ 0.00</span>
+        </div>
+        <div class="d-flex justify-content-between mb-1">
+         <span style="color:var(--t2);font-size:12px">IGV (18%)</span>
+         <span class="mon" style="font-size:12px" id="igvVal">S/ 0.00</span>
+        </div>
+       </div>
+       <div class="d-flex justify-content-between mb-2 pt-1" style="border-top:1px solid var(--bd2)">
+        <span style="color:var(--t2)">Descuento S/</span>
+        <input type="number" name="descuento" id="desc" value="0" step="0.01" min="0" class="form-control form-control-sm text-end" style="width:120px" oninput="recalc()">
+       </div>
+       <div class="d-flex justify-content-between align-items-center">
+        <strong>TOTAL</strong>
+        <span class="mon fw-bold" style="font-size:26px;color:var(--c)" id="tot">S/ 0.00</span>
+       </div>
       </div>
-      <div class="d-flex justify-content-between align-items-center">
-       <strong>TOTAL</strong>
-       <span class="mon fw-bold" style="font-size:26px;color:var(--c)" id="tot">S/ 0.00</span>
-      </div>
-     </div>
     </div>
    </div>
   </div>
@@ -614,8 +635,20 @@ if ($accion==='lista') {
      <label class="form-label">Referencia / N° operación</label>
      <input type="text" name="referencia" class="form-control mb-3" placeholder="(opcional)">
 
-     <label class="form-label">Notas</label>
-     <textarea name="notas" class="form-control" rows="2"></textarea>
+      <!-- IGV toggle -->
+      <label class="form-label mt-2">¿Aplica IGV?</label>
+      <div class="btn-group tipo-group w-100 mb-3" role="group">
+       <input type="radio" class="btn-check" name="aplica_igv" id="igvSi" value="1" checked onchange="toggleIgv()">
+       <label class="btn btn-dk" for="igvSi"><i class="bi bi-check-circle me-1"></i>Sí (gravado)</label>
+       <input type="radio" class="btn-check" name="aplica_igv" id="igvNo" value="0" onchange="toggleIgv()">
+       <label class="btn btn-dk" for="igvNo"><i class="bi bi-x-circle me-1"></i>No (exonerado/inafecto)</label>
+      </div>
+      <div id="igvInfo" class="mb-3" style="font-size:11px;padding:8px 10px;border-radius:6px;background:rgba(0,212,238,.06);border:1px solid rgba(0,212,238,.15);color:var(--t2)">
+       <i class="bi bi-info-circle me-1"></i>Los precios <strong>incluyen IGV (18%)</strong>. Se desglosa automáticamente en el comprobante.
+      </div>
+
+      <label class="form-label">Notas</label>
+      <textarea name="notas" class="form-control" rows="2"></textarea>
     </div>
    </div>
 
@@ -782,6 +815,12 @@ function recalc(){
  let s=0; document.querySelectorAll(".sub").forEach(x=>s+=parseFloat(x.textContent.replace("S/ ",""))||0);
  const d=parseFloat(document.getElementById("desc").value)||0;
  const t=Math.max(0,s-d);
+ const si = document.getElementById("igvSi").checked;
+ const grav = si ? t / 1.18 : t;
+ const igv  = si ? t - grav : 0;
+ document.getElementById("grav").textContent = "S/ "+grav.toFixed(2);
+ document.getElementById("igvVal").textContent = "S/ "+igv.toFixed(2);
+ document.getElementById("igvBreakdown").style.display = si ? "" : "none";
  document.getElementById("tot").textContent = "S/ "+t.toFixed(2);
 }
 (function init(){
@@ -789,9 +828,22 @@ function recalc(){
  const selPac = document.getElementById("selPac");        // hidden con paciente_id
  const display= document.getElementById("pacDisplay");    // input visible readonly
  const info   = document.getElementById("pacInfo");
- const warn   = document.getElementById("warnRuc");
- const tFac   = document.getElementById("tFac");
- const btn    = document.getElementById("btnEmitir");
+  const warn   = document.getElementById("warnRuc");
+  const tFac   = document.getElementById("tFac");
+  const btn    = document.getElementById("btnEmitir");
+  const igvHint= document.getElementById("igvHint");
+  const igvInfo= document.getElementById("igvInfo");
+
+  window.toggleIgv = function(){
+   const si = document.getElementById("igvSi").checked;
+   if(igvHint) igvHint.innerHTML = si
+    ? \'<i class="bi bi-info-circle me-1"></i>Los precios <strong>incluyen IGV (18%)</strong>. Se desglosa automáticamente en el comprobante.\'
+    : \'<i class="bi bi-receipt me-1"></i>Los precios <strong>NO incluyen IGV</strong>. Comprobante exonerado o inafecto.\';
+   if(igvInfo) igvInfo.innerHTML = si
+    ? \'<i class="bi bi-info-circle me-1"></i>Los precios <strong>incluyen IGV (18%)</strong>. Se desglosa automáticamente en el comprobante.\'
+    : \'<i class="bi bi-receipt me-1"></i>Los precios <strong>NO incluyen IGV</strong>. Se emitirá como comprobante exonerado/inafecto. No hay desglose de IGV.\';
+   recalc();
+  };
  const labels = {
   boleta:    \'<i class="bi bi-send-check me-2"></i>Emitir Boleta y generar XML\',
   factura:   \'<i class="bi bi-send-check me-2"></i>Emitir Factura y generar XML\',

@@ -65,3 +65,9 @@ URL: https://magus-ecommerce.com/dental/
 - ✅ Pantalla de turnos para TV
 - ✅ Auditoría SIHCE
 - ✅ Gestión de usuarios y roles
+includes/header.php           |  29 +++++----
+ login.php                     |   1 +
+ migrations/009_rol_modulo.sql |  45 ++++++++++++++
+ pages/admin/roles.php         | 
+
+ php migrations/migrate.php

@@ -14,6 +14,7 @@ $__isLocal = (
 );
 
 if ($__isLocal) {
+    // C:\laragon\www\api-sunat-laravel
     define('SUNAT_API_URL', 'http://api-sunat-laravel.test/api/v1');
 } else {
     // ↳ Cambia a la URL pública de tu API Laravel
