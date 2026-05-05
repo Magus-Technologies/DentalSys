@@ -125,8 +125,21 @@ hr{border-color:var(--bd2)!important}
 .alert-bar-r{background:rgba(224,82,82,.1);border:1px solid rgba(224,82,82,.25);border-left:4px solid var(--r)}
 .alert-bar-a{background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.25);border-left:4px solid var(--a)}
 /* ══ RESPONSIVE / MOBILE ══════════════════════════════════════ */
-.sb-toggle{display:none;background:none;border:none;font-size:22px;color:var(--c);padding:4px 8px;line-height:1}
+.sb-toggle{background:none;border:none;font-size:22px;color:var(--c);padding:4px 8px;line-height:1;cursor:pointer;transition:all .2s}
+.sb-toggle:hover{color:var(--c2);transform:scale(1.1)}
 .sb-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:999;backdrop-filter:blur(2px)}
+
+/* Sidebar colapsado en desktop */
+.sb.collapsed{width:70px;overflow:visible}
+.sb.collapsed .sb-name,.sb.collapsed .sb-sec,.sb.collapsed .nb,.sb.collapsed .sb-foot>div:first-child>div:last-child,.sb.collapsed .btn-out{display:none}
+.sb.collapsed .sb-brand{justify-content:center;padding:16px 8px}
+.sb.collapsed .sb-nav a{justify-content:center;padding:10px;font-size:0;position:relative}
+.sb.collapsed .sb-nav a i{margin:0;font-size:15px}
+.sb.collapsed .sb-nav a::after{content:attr(data-title);position:absolute;left:100%;top:50%;transform:translateY(-50%);background:var(--bg2);color:var(--t);padding:6px 12px;border-radius:6px;font-size:11px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .2s;margin-left:8px;border:1px solid var(--bd);box-shadow:0 4px 12px rgba(0,0,0,.3);z-index:1000}
+.sb.collapsed .sb-nav a:hover::after{opacity:1}
+.sb.collapsed .sb-foot{padding:12px 8px;text-align:center}
+.sb.collapsed .sb-foot .ava{margin:0 auto}
+.mw.expanded{margin-left:70px}
 
 /* TABLET (≤992px) */
 @media(max-width:992px){
@@ -142,10 +155,12 @@ hr{border-color:var(--bd2)!important}
   /* Sidebar slide-in */
   .sb{transform:translateX(-100%);box-shadow:4px 0 24px rgba(0,0,0,.5)}
   .sb.open{transform:translateX(0)}
+  .sb.collapsed{width:260px;transform:translateX(-100%)}
+  .sb.collapsed.open{transform:translateX(0)}
   .sb-ov.open{display:block}
-  .sb-toggle{display:block}
   /* Main layout */
   .mw{margin-left:0}
+  .mw.expanded{margin-left:0}
   .tb{padding:0 12px;height:52px}
   .pb{padding:12px}
   /* Tables: horizontal scroll */
@@ -323,7 +338,7 @@ a:not([class]){color:var(--c)}
 <div class="mw">
  <div class="tb">
   <div class="d-flex align-items-center gap-2">
-   <button class="sb-toggle" onclick="sbT()"><i class="bi bi-list"></i></button>
+   <button class="sb-toggle" id="sbToggleBtn"><i class="bi bi-list"></i></button>
    <span class="tb-title"><?=e($titulo??'')?></span>
   </div>
   <div class="d-flex gap-2 align-items-center">

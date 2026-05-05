@@ -49,11 +49,67 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'guard
     }
 
     // Guardar cada diente
+    $tieneBrackets = false;
     foreach ($datos as $num => $estados) {
         foreach ($estados as $est) {
             if (!isset($est['estado'])) continue;
             db()->prepare("INSERT INTO odontograma_dientes(odontograma_id,numero_diente,cara,estado,color,notas) VALUES(?,?,?,?,?,?)")
                ->execute([$oid, $num, $est['cara'] ?? 'total', $est['estado'], $est['color'] ?? 'azul', $est['notas'] ?? '']);
+            
+            // Verificar si hay brackets/ortodoncia
+            if ($est['estado'] === 'brackets') {
+                $tieneBrackets = true;
+            }
+        }
+    }
+
+    // Si hay brackets/ortodoncia, crear registro en tabla ortodoncias
+    if ($tieneBrackets && isset($_POST['ortodoncia_fecha']) && !empty($_POST['ortodoncia_fecha'])) {
+        $tipos_arco = [];
+        if (isset($_POST['ortodoncia_arco_acero']) && $_POST['ortodoncia_arco_acero'] === '1') $tipos_arco[] = 'acero';
+        if (isset($_POST['ortodoncia_arco_niti']) && $_POST['ortodoncia_arco_niti'] === '1') $tipos_arco[] = 'niti';
+        if (isset($_POST['ortodoncia_arco_termico']) && $_POST['ortodoncia_arco_termico'] === '1') $tipos_arco[] = 'termico';
+        if (isset($_POST['ortodoncia_arco_resorte']) && $_POST['ortodoncia_arco_resorte'] === '1') $tipos_arco[] = 'resorte';
+        $tipo_arco_json = json_encode($tipos_arco);
+        
+        // Obtener lista de dientes con brackets
+        $dientes_con_brackets = [];
+        foreach ($datos as $num => $estados) {
+            foreach ($estados as $est) {
+                if (isset($est['estado']) && $est['estado'] === 'brackets') {
+                    $dientes_con_brackets[] = (string)$num;
+                    break;
+                }
+            }
+        }
+        $dientes_json = json_encode(array_unique($dientes_con_brackets));
+        
+        // Verificar si ya existe una instalación de ortodoncia para este paciente
+        $existeOrtodoncia = db()->prepare("SELECT id FROM ortodoncias WHERE paciente_id = ? AND tipo = 'instalacion' ORDER BY fecha_atencion DESC LIMIT 1");
+        $existeOrtodoncia->execute([$paciente_id]);
+        $ortodoncia_existente = $existeOrtodoncia->fetch();
+        
+        if (!$ortodoncia_existente) {
+            // Crear nueva instalación de ortodoncia
+            db()->prepare("INSERT INTO ortodoncias(paciente_id, hc_id, tipo, fecha_atencion, fecha_referencia, tipo_arco, dientes_json, observaciones, procedimientos, doctor_id) VALUES(?,?,?,?,?,?,?,?,?,?)")
+               ->execute([
+                   $paciente_id,
+                   $hc_id ?: null,
+                   'instalacion',
+                   $_POST['ortodoncia_fecha'],
+                   !empty($_POST['ortodoncia_fecha_referencia']) ? $_POST['ortodoncia_fecha_referencia'] : null,
+                   $tipo_arco_json,
+                   $dientes_json,
+                   $_POST['ortodoncia_observaciones'] ?? '',
+                   'Instalación registrada desde odontograma',
+                   $_SESSION['uid']
+               ]);
+            $ortodoncia_id = db()->lastInsertId();
+            auditar('CREAR_ORTODONCIA', 'ortodoncias', $ortodoncia_id);
+        } else {
+            // Actualizar dientes en la instalación existente
+            db()->prepare("UPDATE ortodoncias SET dientes_json = ?, tipo_arco = ?, observaciones = ?, updated_at = NOW() WHERE id = ?")
+               ->execute([$dientes_json, $tipo_arco_json, $_POST['ortodoncia_observaciones'] ?? '', $ortodoncia_existente['id']]);
         }
     }
 
@@ -97,13 +153,16 @@ $xhead = '<style>
     align-items:flex-start
   }
   #toolPanel>div{flex-shrink:0}
-  .tool-btn{width:auto;white-space:nowrap;margin-bottom:0!important}
+  .tool-btn{width:auto;white-space:nowrap;margin-bottom:0!important;font-size:11px;padding:6px 10px}
   .odont-wrap{padding:10px 6px}
   .odont-svg{min-width:750px}
-  .tool-panel+.tool-panel{margin-top:0}
+  .legend-item{font-size:10px;padding:4px 8px}
 }
 @media(max-width:576px){
   .odont-wrap .d-flex.gap-2{overflow-x:auto;flex-wrap:nowrap!important;padding-bottom:4px}
+  .odont-svg{min-width:680px}
+  .legend-item{font-size:9px;padding:3px 6px;gap:4px}
+  .legend-dot{width:10px;height:10px}
 }
 
 @media(max-width:768px){
@@ -123,7 +182,7 @@ $xhead = '<style>
 // Override xhead for odontogram page
 $xhead = '<style>
 /* ── ODONTOGRAMA PROFESIONAL ── */
-.odont-wrap{background:var(--bg3);border:1px solid var(--bd);border-radius:12px;padding:20px;overflow-x:auto;user-select:none}
+.odont-wrap{background:var(--bg3);border:1px solid var(--bd);border-radius:12px;padding:20px;overflow-x:auto;user-select:none;position:relative}
 .odont-svg{display:block;margin:0 auto;min-width:900px;max-width:1200px;width:100%}
 .odont-svg .tooth-group{cursor:pointer;transition:opacity .15s}
 .odont-svg .tooth-group:hover .tooth-bg{opacity:.85}
@@ -131,17 +190,24 @@ $xhead = '<style>
 .odont-svg .tooth-name{font-size:8px;fill:#507080;text-anchor:middle}
 .odont-svg .face-label{font-size:7px;fill:#4A6070;text-anchor:middle;font-weight:700;letter-spacing:.5px}
 /* Estado badges debajo del odontograma */
-.legend-item{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:2px solid transparent;transition:all .15s;color:var(--t)}
+.legend-item{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:2px solid transparent;transition:all .15s;color:var(--t);white-space:nowrap}
 .legend-item.active{border-color:var(--c)!important;background:rgba(0,212,238,.1)}
 .legend-dot{width:14px;height:14px;border-radius:3px;flex-shrink:0}
 /* Paleta de herramientas */
-.tool-panel{background:var(--bg2);border:1px solid var(--bd2);border-radius:10px;padding:16px}
-.tool-btn{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:7px;border:1px solid var(--bd2);background:var(--bg3);color:var(--t);font-size:12px;font-weight:700;cursor:pointer;width:100%;text-align:left;transition:all .14s;margin-bottom:5px}
+.tool-panel{background:var(--bg2);border:1px solid var(--bd2);border-radius:10px;padding:18px}
+.tool-btn{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:7px;border:1px solid var(--bd2);background:var(--bg3);color:var(--t);font-size:14px;font-weight:700;cursor:pointer;width:100%;text-align:left;transition:all .14s;margin-bottom:6px}
 .tool-btn:hover{border-color:var(--c);color:var(--c)}
 .tool-btn.active{background:rgba(0,212,238,.12);border-color:var(--c);color:var(--c)}
-.tool-dot{width:16px;height:16px;border-radius:4px;flex-shrink:0}
+.tool-dot{width:18px;height:18px;border-radius:4px;flex-shrink:0}
 /* Selected tooth info */
-.tooth-info{background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:12px;min-height:80px}
+.tooth-info{background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:14px;min-height:100px;font-size:14px}
+/* Tooltip personalizado */
+#toothTooltip{position:absolute;background:#000;color:#e0e0e0;border:2px solid #d0d0d0;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;pointer-events:none;display:none;z-index:1000;white-space:nowrap}
+/* Títulos del panel */
+.tool-panel > div[style*="font-size:10px"]{font-size:13px!important}
+.tool-panel .form-label{font-size:13px!important;font-weight:600}
+.tool-panel .form-control,.tool-panel .form-select{font-size:13px!important}
+.tool-panel .form-check-label{font-size:13px!important}
 </style>';
 
 require_once __DIR__.'/../includes/header.php';
@@ -166,19 +232,19 @@ require_once __DIR__.'/../includes/header.php';
  </div>
 </div>
 
-<form method="POST" id="fOdont">
+<form method="POST" id="fOdont" onsubmit="return capturarDatosOrtodoncia()">
 <input type="hidden" name="accion" value="guardar">
 <input type="hidden" name="hc_id" value="<?= $hc_id ?>">
 <input type="hidden" name="datos_json" id="datosJson" value="{}">
 
 <div class="row g-3">
  <!-- Panel de herramientas -->
- <div class="col-12 col-xl-2 col-lg-3 order-2 order-lg-1">
+ <div class="col-12 col-xl-3 col-lg-4 order-2 order-lg-1">
   <div class="tool-panel mb-3" id="toolPanel">
    <div style="font-size:10px;font-weight:700;color:var(--c);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">Tipo dentadura</div>
-   <div class="d-flex gap-2 mb-3">
-    <button type="button" class="btn btn-sm flex-fill" id="btnPerm" onclick="setTipo('permanente')" style="font-size:11px">🦷 Permanente</button>
-    <button type="button" class="btn btn-sm flex-fill" id="btnTemp" onclick="setTipo('temporal')" style="font-size:11px">🧒 Temporal</button>
+   <div class="d-flex gap-2 mb-3 flex-wrap">
+    <button type="button" class="btn btn-sm" id="btnPerm" onclick="setTipo('permanente')" style="font-size:11px;flex:1;min-width:0;white-space:nowrap">🦷 Permanente</button>
+    <button type="button" class="btn btn-sm" id="btnTemp" onclick="setTipo('temporal')" style="font-size:11px;flex:1;min-width:0;white-space:nowrap">🧒 Temporal</button>
    </div>
 
    <div style="font-size:10px;font-weight:700;color:var(--c);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">Estado / Diagnóstico</div>
@@ -220,6 +286,48 @@ require_once __DIR__.'/../includes/header.php';
     <div class="tool-dot" style="background:#06B6D4"></div> Brackets / Ortodoncia
    </button>
 
+   <!-- Sección de Ortodoncia (oculta por defecto) -->
+   <div id="ortodonciaSection" style="display:none;margin-top:15px;padding-top:15px;border-top:1px solid var(--bd2)">
+    <div style="font-size:10px;font-weight:700;color:var(--c);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">Datos de Ortodoncia</div>
+    
+    <div class="mb-2">
+     <label class="form-label" style="font-size:11px">Fecha de atención</label>
+     <input type="date" id="ortodonciaFecha" class="form-control form-control-sm">
+    </div>
+    
+    <div class="mb-2">
+     <label class="form-label" style="font-size:11px">Tipo de arco</label>
+     <div class="d-flex flex-column gap-1">
+      <div class="form-check form-check-sm">
+       <input class="form-check-input" type="checkbox" id="arcoAcero">
+       <label class="form-check-label" for="arcoAcero" style="font-size:11px">Acero</label>
+      </div>
+      <div class="form-check form-check-sm">
+       <input class="form-check-input" type="checkbox" id="arcoNiti">
+       <label class="form-check-label" for="arcoNiti" style="font-size:11px">Niti</label>
+      </div>
+      <div class="form-check form-check-sm">
+       <input class="form-check-input" type="checkbox" id="arcoTermico">
+       <label class="form-check-label" for="arcoTermico" style="font-size:11px">Térmico</label>
+      </div>
+      <div class="form-check form-check-sm">
+       <input class="form-check-input" type="checkbox" id="arcoResorte">
+       <label class="form-check-label" for="arcoResorte" style="font-size:11px">Resorte</label>
+      </div>
+     </div>
+    </div>
+    
+    <div class="mb-2">
+     <label class="form-label" style="font-size:11px">Observaciones/Motivo</label>
+     <textarea id="ortodonciaObs" class="form-control form-control-sm" rows="2" placeholder="Observaciones del tratamiento..."></textarea>
+    </div>
+    
+    <div class="mb-2">
+     <label class="form-label" style="font-size:11px">Fecha de referencia</label>
+     <input type="date" id="ortodonciaFechaRef" class="form-control form-control-sm">
+    </div>
+   </div>
+
    <div style="font-size:10px;font-weight:700;color:var(--c);letter-spacing:1.5px;text-transform:uppercase;margin:12px 0 8px">Cara a marcar</div>
    <select id="selCara" class="form-select form-select-sm mb-3">
     <option value="total">⬛ Total / Completo</option>
@@ -231,10 +339,10 @@ require_once __DIR__.'/../includes/header.php';
    </select>
 
    <div style="font-size:10px;font-weight:700;color:var(--c);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">Color</div>
-   <div class="d-flex gap-2 mb-3">
-    <button type="button" class="legend-item" onclick="setColor('rojo')" id="col-rojo" style="border-color:rgba(224,82,82,.4)"><div class="tool-dot" style="background:#E05252"></div><span style="color:var(--t)">Rojo</span></button>
-    <button type="button" class="legend-item" onclick="setColor('azul')" id="col-azul" style="border-color:rgba(0,212,238,.4)"><div class="tool-dot" style="background:#00D4EE"></div><span style="color:var(--t)">Azul</span></button>
-    <button type="button" class="legend-item" onclick="setColor('negro')" id="col-negro" style="border-color:rgba(160,176,192,.3)"><div class="tool-dot" style="background:#607080"></div><span style="color:var(--t)">Negro</span></button>
+   <div class="d-flex flex-wrap gap-2 mb-3">
+    <button type="button" class="legend-item flex-fill" onclick="setColor('rojo')" id="col-rojo" style="border-color:rgba(224,82,82,.4);min-width:0"><div class="tool-dot" style="background:#E05252"></div><span style="color:var(--t)">Rojo</span></button>
+    <button type="button" class="legend-item flex-fill" onclick="setColor('azul')" id="col-azul" style="border-color:rgba(0,212,238,.4);min-width:0"><div class="tool-dot" style="background:#00D4EE"></div><span style="color:var(--t)">Azul</span></button>
+    <button type="button" class="legend-item flex-fill" onclick="setColor('negro')" id="col-negro" style="border-color:rgba(160,176,192,.3);min-width:0"><div class="tool-dot" style="background:#607080"></div><span style="color:var(--t)">Negro</span></button>
    </div>
 
    <button type="button" class="btn btn-del btn-sm w-100 mb-2" onclick="limpiarTodo()">🧹 Limpiar todo</button>
@@ -254,8 +362,10 @@ require_once __DIR__.'/../includes/header.php';
  </div>
 
  <!-- ODONTOGRAMA PRINCIPAL -->
- <div class="col-12 col-xl-10 col-lg-9 order-1 order-lg-2">
+ <div class="col-12 col-xl-9 col-lg-8 order-1 order-lg-2">
   <div class="odont-wrap" id="odontWrap">
+   <!-- Tooltip personalizado -->
+   <div id="toothTooltip"></div>
    <!-- Leyenda superior -->
    <div class="d-flex gap-2 flex-wrap mb-3 px-2 justify-content-center">
     <?php
@@ -428,7 +538,15 @@ require_once __DIR__.'/../includes/header.php';
         $root_w   = ['I'=>6, 'C'=>7, 'PM'=>8, 'M'=>10][$tipo] ?? 7;
         $roots    = ['I'=>1, 'C'=>1, 'PM'=>1, 'M'=>3][$tipo] ?? 1;
 
-        echo "<g class='tooth-group' data-num='$num' data-tipo='$tipo' onclick='clickDiente(this)' data-estados='".htmlspecialchars(json_encode($estados))."'>";
+        echo "<g class='tooth-group' data-num='$num' data-tipo='$tipo' onclick='clickDiente(this)' data-estados='".htmlspecialchars(json_encode($estados))."' onmouseenter='showTooltip(this,event)' onmousemove='moveTooltip(event)' onmouseleave='hideTooltip()'>";
+
+        // Guardar nombre del estado en data attribute (sin usar <title>)
+        if ($main_estado && $main_estado !== 'sano') {
+            $nombre_estado = ['caries'=>'Caries','obturado'=>'Obturado/Restaurado','ausente'=>'Ausente/Extraído','endodoncia'=>'Endodoncia','corona'=>'Corona','implante'=>'Implante','fractura'=>'Fractura','presupuesto'=>'Presupuesto','sellante'=>'Sellante','protesis'=>'Prótesis/Puente','brackets'=>'Brackets/Ortodoncia'][$main_estado] ?? $main_estado;
+            echo "<g data-estado='$nombre_estado'></g>";
+        } else {
+            echo "<g data-estado='Sano'></g>";
+        }
 
         // ── CORONA DEL DIENTE ──
         $fill_corona = $main_estado === 'ausente' ? 'rgba(245,166,35,.15)' : ($main_color !== 'none' ? $main_color.'33' : 'url(#toothShade)');
@@ -451,25 +569,6 @@ require_once __DIR__.'/../includes/header.php';
                 $ry_end = $inferior ? $rys : $rys + $root_h;
                 $ry_start = $inferior ? $rys + $root_h : $rys;
                 echo "<path d='M ".($rx-$root_w/2)." $ry_start Q $rx ".($inferior ? $rys - 8 : $ry_end + 8)." ".($rx+$root_w/2)." $ry_end' fill='none' stroke='#8899A6' stroke-width='1.2' stroke-linecap='round'/>";
-            }
-
-            // Símbolo endodoncia
-            if ($main_estado === 'endodoncia') {
-                echo "<line x1='$cx' y1='".($cy_corona-$h/2+4)."' x2='$cx' y2='".($cy_corona+$h/2-4)."' stroke='#8B5CF6' stroke-width='2.5' stroke-linecap='round'/>";
-            }
-            // Símbolo corona (círculo encima)
-            if ($main_estado === 'corona') {
-                $cap_y = $inferior ? $cy_corona + $h/2 + 3 : $cy_corona - $h/2 - 3;
-                echo "<rect x='".($cx-$w/2+1)."' y='".($cap_y - ($inferior?0:6))."' width='".($w-2)."' height='6' rx='1' fill='#F59E0B' stroke='#F59E0B' stroke-width='0'/>";
-            }
-            // Símbolo implante
-            if ($main_estado === 'implante') {
-                echo "<line x1='$cx' y1='".($cy_corona-4)."' x2='$cx' y2='".($cy_corona+4)."' stroke='#10B981' stroke-width='3'/>";
-                echo "<line x1='".($cx-4)."' y1='$cy_corona' x2='".($cx+4)."' y2='$cy_corona' stroke='#10B981' stroke-width='3'/>";
-            }
-            // Símbolo fractura
-            if ($main_estado === 'fractura') {
-                echo "<polyline points='".($cx-3).",".($cy_corona-8)." $cx,".($cy_corona)." ".($cx+3).",".($cy_corona+8)."' fill='none' stroke='#EF4444' stroke-width='2.5' stroke-linecap='round'/>";
             }
         }
 
@@ -523,6 +622,13 @@ require_once __DIR__.'/../includes/header.php';
         // Círculo oclusal interno
         echo "<circle cx='$cx' cy='$cy_cara' r='".round($r_circ*0.45)."' fill='none' stroke='$lc' stroke-width='$lw'/>";
 
+        // Indicador de estado visual (cuadradito arriba/abajo del diente)
+        $indicator_y = $inferior ? $cy_corona + $h/2 + 18 : $cy_corona - $h/2 - 12;
+        if ($main_estado && $main_estado !== 'sano') {
+            $color_estado = $col_map[$main_estado] ?? '#607080';
+            echo "<rect x='".($cx-8)."' y='".($indicator_y-3)."' width='16' height='6' rx='3' fill='$color_estado' opacity='1'/>";
+        }
+
         // Número de diente
         $num_y = $inferior ? $cy_cara + $r_circ + 12 : $cy_cara - $r_circ - 6;
         echo "<text class='tooth-num' x='$cx' y='$num_y'>$num</text>";
@@ -531,6 +637,7 @@ require_once __DIR__.'/../includes/header.php';
     }
 
     // ── RENDERIZAR TODOS LOS DIENTES ──
+    echo "<g id='gPermanente'>";
     $todos = array_merge($sup_der, $sup_izq, $inf_izq, $inf_der);
     foreach ($todos as $num) {
         $cx = getToothX($num, $x_centro, $dx);
@@ -541,6 +648,7 @@ require_once __DIR__.'/../includes/header.php';
         renderToothSVG($num, $cx, $cy_c, $cy_ca, $tipo, $es_inf, $dientes_db, $col_map, $col_color);
     }
     ?>
+    </g><!-- fin gPermanente -->
 
     <!-- ── DENTICIÓN DECIDUA (temporal) ── oculto por defecto -->
     <g id="gDecidua" style="display:none">
@@ -557,8 +665,8 @@ require_once __DIR__.'/../includes/header.php';
      $dec_tipo = [55=>'M',54=>'PM',53=>'C',52=>'I',51=>'I', 61=>'I',62=>'I',63=>'C',64=>'PM',65=>'M', 71=>'I',72=>'I',73=>'C',74=>'PM',75=>'M', 81=>'I',82=>'I',83=>'C',84=>'PM',85=>'M'];
      $dx_dec = 52;
      $x0_dec = 550;
-     $dec_y_sup_c = 380; $dec_y_sup_ca = 450;
-     $dec_y_inf_c = 560; $dec_y_inf_ca = 490;
+     $dec_y_sup_c = 120; $dec_y_sup_ca = 205;
+     $dec_y_inf_c = 440; $dec_y_inf_ca = 355;
 
      function getDecX(int $n, int $x0, int $dx): float {
          $sd=[55,54,53,52,51]; $si=[61,62,63,64,65]; $ii=[71,72,73,74,75]; $id=[85,84,83,82,81];
@@ -610,11 +718,26 @@ require_once __DIR__.'/../includes/header.php';
   </div>
  </div>
 </div>
+
+<!-- Campos ocultos para datos de ortodoncia -->
+<input type="hidden" name="ortodoncia_fecha" id="ortodonciaFechaHidden">
+<input type="hidden" name="ortodoncia_arco_acero" id="ortodonciaArcoAceroHidden">
+<input type="hidden" name="ortodoncia_arco_niti" id="ortodonciaArcoNitiHidden">
+<input type="hidden" name="ortodoncia_arco_termico" id="ortodonciaArcoTermicoHidden">
+<input type="hidden" name="ortodoncia_arco_resorte" id="ortodonciaArcoResorteHidden">
+<input type="hidden" name="ortodoncia_observaciones" id="ortodonciaObservacionesHidden">
+<input type="hidden" name="ortodoncia_fecha_referencia" id="ortodonciaFechaRefHidden">
 </form>
 
 <?php
+// Obtener datos de ortodoncia del paciente
+$ortodoncias_data = db()->prepare("SELECT * FROM ortodoncias WHERE paciente_id = ? ORDER BY fecha_atencion DESC");
+$ortodoncias_data->execute([$paciente_id]);
+$ortodoncias_info = $ortodoncias_data->fetchAll();
+
 $dientes_js = json_encode($dientes_db);
-$xscript = "<script>\nlet dientesData=" . $dientes_js . ";\n" . <<<'JSRAW'
+$ortodoncias_js = json_encode($ortodoncias_info);
+$xscript = "<script>\nlet dientesData=" . $dientes_js . ";\nlet ortodonciasData=" . $ortodoncias_js . ";\n" . <<<'JSRAW'
 let dienteActivo = null;
 
 const colMap = {
@@ -651,6 +774,58 @@ function setHerramienta(h) {
     document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
     const btn = document.getElementById('tool-'+h);
     if (btn) btn.classList.add('active');
+    
+    // Mostrar/ocultar sección de ortodoncia
+    const ortodonciaSection = document.getElementById('ortodonciaSection');
+    if (ortodonciaSection) {
+        ortodonciaSection.style.display = h === 'brackets' ? 'block' : 'none';
+    }
+    
+    // Si se selecciona brackets, mostrar info de ortodoncia en el panel
+    if (h === 'brackets') {
+        mostrarInfoOrtodoncia();
+    }
+}
+
+function mostrarInfoOrtodoncia() {
+    const info = document.getElementById('toothInfo');
+    
+    if (ortodonciasData && ortodonciasData.length > 0) {
+        const instalacion = ortodonciasData.find(o => o.tipo === 'instalacion') || ortodonciasData[0];
+        
+        if (instalacion) {
+            const tiposArco = JSON.parse(instalacion.tipo_arco || '[]');
+            const fechaAtencion = new Date(instalacion.fecha_atencion).toLocaleDateString('es-ES');
+            
+            let html = '<div style="font-weight:700;color:#06B6D4;font-size:14px;margin-bottom:12px;text-align:center">📋 ORTODONCIA DEL PACIENTE</div>';
+            html += `<div style="font-size:13px;color:var(--t);margin-bottom:8px;line-height:1.6"><strong style="display:block;color:var(--t2);font-size:11px;margin-bottom:2px">Fecha de instalación:</strong>${fechaAtencion}</div>`;
+            
+            if (tiposArco.length > 0) {
+                html += `<div style="font-size:13px;color:var(--t);margin-bottom:8px;line-height:1.6"><strong style="display:block;color:var(--t2);font-size:11px;margin-bottom:2px">Tipo de arco:</strong>${tiposArco.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(', ')}</div>`;
+            }
+            
+            if (instalacion.observaciones) {
+                html += `<div style="font-size:13px;color:var(--t);margin-bottom:8px;line-height:1.6"><strong style="display:block;color:var(--t2);font-size:11px;margin-bottom:2px">Observaciones:</strong>${instalacion.observaciones.substring(0, 80)}${instalacion.observaciones.length > 80 ? '...' : ''}</div>`;
+            }
+            
+            if (instalacion.proximo_control) {
+                const fechaControl = new Date(instalacion.proximo_control).toLocaleDateString('es-ES');
+                html += `<div style="font-size:13px;color:var(--t);margin-bottom:8px;line-height:1.6"><strong style="display:block;color:var(--t2);font-size:11px;margin-bottom:2px">Próximo control:</strong>${fechaControl}</div>`;
+            }
+            
+            html += `<div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--bd2);text-align:center">
+                <a href="<?=BASE_URL?>/pages/ortodoncias.php?paciente_id=<?=$paciente_id?>" style="font-size:12px;color:#06B6D4;text-decoration:none;font-weight:600">
+                    <i class="bi bi-grid-3x2-gap"></i> Ver todos los controles
+                </a>
+            </div>`;
+            
+            html += '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--bd2);font-size:12px;color:var(--t2);text-align:center">Haz clic en un diente para marcarlo</div>';
+            
+            info.innerHTML = html;
+        }
+    } else {
+        info.innerHTML = '<div style="font-weight:700;color:#06B6D4;font-size:14px;margin-bottom:12px;text-align:center">📋 ORTODONCIA</div><div style="color:var(--t2);font-size:13px;text-align:center">No hay registros de ortodoncia para este paciente.<br><br><a href="<?=BASE_URL?>/pages/ortodoncias.php?paciente_id=<?=$paciente_id?>" style="font-size:12px;color:#06B6D4;text-decoration:none;font-weight:600"><i class="bi bi-plus-circle"></i> Registrar instalación</a></div>';
+    }
 }
 
 function setColor(c) {
@@ -664,6 +839,7 @@ function setTipo(t) {
     tipoDentadura = t;
     document.getElementById('btnPerm').className = 'btn btn-sm flex-fill ' + (t==='permanente'?'btn-primary':'btn-dk');
     document.getElementById('btnTemp').className = 'btn btn-sm flex-fill ' + (t==='temporal'?'btn-primary':'btn-dk');
+    document.getElementById('gPermanente').style.display = t==='permanente' ? 'block' : 'none';
     document.getElementById('gDecidua').style.display = t==='temporal' ? 'block' : 'none';
 }
 
@@ -820,6 +996,47 @@ function updateToothInfo(num) {
             </div>`;
         }
     }
+    
+    // Mostrar detalles de ortodoncia si el diente está en la lista de dientes con brackets
+    if (ortodonciasData && ortodonciasData.length > 0) {
+        const instalacion = ortodonciasData.find(o => o.tipo === 'instalacion') || ortodonciasData[0];
+        
+        if (instalacion && instalacion.dientes_json) {
+            const dientesConBrackets = JSON.parse(instalacion.dientes_json || '[]');
+            const dienteStr = String(num);
+            
+            // Solo mostrar si este diente específico tiene brackets
+            if (dientesConBrackets.includes(dienteStr)) {
+                const tiposArco = JSON.parse(instalacion.tipo_arco || '[]');
+                const fechaAtencion = new Date(instalacion.fecha_atencion).toLocaleDateString('es-ES');
+                
+                html += '<div style="margin-top:15px;padding-top:15px;border-top:2px solid var(--bd2)">';
+                html += '<div style="font-weight:700;color:#06B6D4;font-size:13px;margin-bottom:10px;text-align:center">📋 ORTODONCIA</div>';
+                html += `<div style="font-size:13px;color:var(--t);margin-bottom:8px;line-height:1.6"><strong style="display:block;color:var(--t2);font-size:11px;margin-bottom:2px">Fecha:</strong>${fechaAtencion}</div>`;
+                
+                if (tiposArco.length > 0) {
+                    html += `<div style="font-size:13px;color:var(--t);margin-bottom:8px;line-height:1.6"><strong style="display:block;color:var(--t2);font-size:11px;margin-bottom:2px">Arco:</strong>${tiposArco.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(', ')}</div>`;
+                }
+                
+                if (instalacion.observaciones) {
+                    html += `<div style="font-size:13px;color:var(--t);margin-bottom:8px;line-height:1.6"><strong style="display:block;color:var(--t2);font-size:11px;margin-bottom:2px">Observaciones:</strong>${instalacion.observaciones.substring(0, 60)}${instalacion.observaciones.length > 60 ? '...' : ''}</div>`;
+                }
+                
+                if (instalacion.proximo_control) {
+                    const fechaControl = new Date(instalacion.proximo_control).toLocaleDateString('es-ES');
+                    html += `<div style="font-size:13px;color:var(--t);margin-bottom:8px;line-height:1.6"><strong style="display:block;color:var(--t2);font-size:11px;margin-bottom:2px">Próximo:</strong>${fechaControl}</div>`;
+                }
+                
+                html += `<div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--bd2);text-align:center">
+                    <a href="<?=BASE_URL?>/pages/ortodoncias.php?paciente_id=<?=$paciente_id?>" style="font-size:12px;color:#06B6D4;text-decoration:none;font-weight:600">
+                        <i class="bi bi-grid-3x2-gap"></i> Ver controles
+                    </a>
+                </div>`;
+                html += '</div>';
+            }
+        }
+    }
+    
     info.innerHTML = html;
     
     // Nota
@@ -875,6 +1092,78 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     saveData();
 });
+
+// ── TOOLTIP PERSONALIZADO ────────────────────────────────────
+function showTooltip(g, e) {
+    const num = g.dataset.num;
+    const estadoG = g.querySelector('g[data-estado]');
+    const estado = estadoG ? estadoG.getAttribute('data-estado') : 'Sano';
+    const tooltip = document.getElementById('toothTooltip');
+    tooltip.textContent = `Diente ${num} - ${estado}`;
+    tooltip.style.display = 'block';
+    moveTooltip(e);
+}
+
+function moveTooltip(e) {
+    const tooltip = document.getElementById('toothTooltip');
+    const wrap = document.getElementById('odontWrap');
+    const rect = wrap.getBoundingClientRect();
+    tooltip.style.left = (e.clientX - rect.left + 15) + 'px';
+    tooltip.style.top = (e.clientY - rect.top - 10) + 'px';
+}
+
+function hideTooltip() {
+    document.getElementById('toothTooltip').style.display = 'none';
+}
+
+// ── CAPTURAR DATOS DE ORTODONCIA ─────────────────────────────
+function capturarDatosOrtodoncia() {
+    // Verificar si hay algún diente con brackets/ortodoncia
+    let tieneBrackets = false;
+    for (const num in dientesData) {
+        if (dientesData[num].some(e => e.estado === 'brackets')) {
+            tieneBrackets = true;
+            break;
+        }
+    }
+    
+    if (tieneBrackets) {
+        // Capturar datos de la sección de ortodoncia
+        const fechaInput = document.getElementById('ortodonciaFecha');
+        document.getElementById('ortodonciaFechaHidden').value = fechaInput && fechaInput.value ? fechaInput.value : new Date().toISOString().split('T')[0];
+        
+        const arcoAcero = document.getElementById('arcoAcero');
+        document.getElementById('ortodonciaArcoAceroHidden').value = arcoAcero && arcoAcero.checked ? '1' : '0';
+        
+        const arcoNiti = document.getElementById('arcoNiti');
+        document.getElementById('ortodonciaArcoNitiHidden').value = arcoNiti && arcoNiti.checked ? '1' : '0';
+        
+        const arcoTermico = document.getElementById('arcoTermico');
+        document.getElementById('ortodonciaArcoTermicoHidden').value = arcoTermico && arcoTermico.checked ? '1' : '0';
+        
+        const arcoResorte = document.getElementById('arcoResorte');
+        document.getElementById('ortodonciaArcoResorteHidden').value = arcoResorte && arcoResorte.checked ? '1' : '0';
+        
+        const obsInput = document.getElementById('ortodonciaObs');
+        document.getElementById('ortodonciaObservacionesHidden').value = obsInput ? obsInput.value : '';
+        
+        const fechaRefInput = document.getElementById('ortodonciaFechaRef');
+        document.getElementById('ortodonciaFechaRefHidden').value = fechaRefInput && fechaRefInput.value ? fechaRefInput.value : '';
+    } else {
+        // Limpiar campos si no hay brackets
+        document.getElementById('ortodonciaFechaHidden').value = '';
+        document.getElementById('ortodonciaArcoAceroHidden').value = '0';
+        document.getElementById('ortodonciaArcoNitiHidden').value = '0';
+        document.getElementById('ortodonciaArcoTermicoHidden').value = '0';
+        document.getElementById('ortodonciaArcoResorteHidden').value = '0';
+        document.getElementById('ortodonciaObservacionesHidden').value = '';
+        document.getElementById('ortodonciaFechaRefHidden').value = '';
+    }
+    
+    // Guardar datos del odontograma
+    saveData();
+    return true;
+}
 </script>
 JS;
 JSRAW;
