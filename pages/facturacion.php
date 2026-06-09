@@ -7,8 +7,8 @@
 require_once __DIR__.'/../includes/config.php';
 require_once __DIR__.'/../includes/config_sunat.php';
 require_once __DIR__.'/../includes/sunat/SunatService.php';
-requiereRol('admin','contador','recepcion');
-
+//requiereRol('admin','contador','recepcion');
+requiereModulo('facturacion');
 $accion = $_GET['accion'] ?? 'lista';
 $id     = (int)($_GET['id'] ?? 0);
 

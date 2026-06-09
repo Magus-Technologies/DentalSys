@@ -3,8 +3,9 @@ sesion();
 if(!isset($titulo)) $titulo='DentalSys-Magus';
 if(!isset($pagina_activa)) $pagina_activa='';
 ?><!DOCTYPE html>
-<html lang="es">
+<html lang="es" id="htmlRoot">
 <head>
+<script>var _t=localStorage.getItem("dentsys_theme")||"dark";document.documentElement.setAttribute("data-theme",_t==="light"?"light":"");</script>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>DentalSys | Magus</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,7 +13,7 @@ if(!isset($pagina_activa)) $pagina_activa='';
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 <style>
-:root{--bg:#111A26;--bg2:#182233;--bg3:#0E1621;--bg4:#1E2D40;
+:root{--bs-body-color:#E8EDF2;--bs-body-bg:#111A26;--bs-emphasis-color:#E8EDF2;--bg:#111A26;--bg2:#182233;--bg3:#0E1621;--bg4:#1E2D40;
 --c:#00D4EE;--c2:#00B8CC;--g:#2ECC8E;--a:#F5A623;--r:#E05252;--b:#5BA8F5;--p:#8B5CF6;
 --t:#E8EDF2;--t2:#A0B0C0;--t3:#506070;
 --bd:rgba(0,212,238,.12);--bd2:rgba(255,255,255,.06);--sw:256px}
@@ -90,7 +91,8 @@ body{font-family:'Nunito',sans-serif;font-size:14px;background:var(--bg);color:v
 .form-control,.form-select{font-family:'Nunito',sans-serif;font-size:13px!important;background:var(--bg3)!important;border:1px solid var(--bd2)!important;border-radius:7px;color:var(--t)!important;padding:8px 12px}
 .form-control:focus,.form-select:focus{background:rgba(0,212,238,.05)!important;border-color:var(--c)!important;box-shadow:0 0 0 3px rgba(0,212,238,.1)!important;color:var(--t)!important}
 .form-control::placeholder{color:var(--t3)!important}
-.form-select option{background:var(--bg2)!important;color:var(--t)!important}
+.form-select option,.form-control option,select option{background:var(--bg2)!important;color:var(--t)!important}
+.form-select optgroup,.form-control optgroup,select optgroup{background:var(--bg2)!important;color:var(--t2)!important}
 .form-label{font-size:11px;font-weight:700;color:#6BC5D3;margin-bottom:4px;display:block}
 .input-group-text{background:var(--bg3)!important;border:1px solid var(--bd2)!important;color:var(--c)!important;font-weight:700;font-size:13px}
 /* ALERT */
@@ -272,8 +274,46 @@ a:not([class]){color:var(--c)}
   .sb-foot{padding-bottom:calc(12px + env(safe-area-inset-bottom))}
 }
 
+/* LIGHT MODE */
+[data-theme=light]{--bs-body-color:#1A2535;--bs-body-bg:#F0F4F8;--bs-emphasis-color:#1A2535;--bg:#F0F4F8;--bg2:#FFFFFF;--bg3:#E8EEF4;--bg4:#D8E2EC;--t:#1A2535;--t2:#4A6070;--t3:#8090A0;--bd:rgba(0,150,180,.25);--bd2:rgba(0,0,0,.1)}
+[data-theme=light] .sb{background:#1A2535!important;border-right:1px solid rgba(0,212,238,.15)}
+[data-theme=light] .sb-nav a,[data-theme=light] .sb-name,[data-theme=light] .sb-sec{color:#A0B8C8!important}
+[data-theme=light] .sb-nav a.act{color:var(--c)!important}
+[data-theme=light] .tb{background:#FFFFFF;border-bottom:1px solid rgba(0,0,0,.1);box-shadow:0 1px 8px rgba(0,0,0,.08)}
+[data-theme=light] .card{background:#FFFFFF!important;border-color:rgba(0,0,0,.1)!important;box-shadow:0 1px 6px rgba(0,0,0,.07)}
+[data-theme=light] .card-header{background:#F5F8FA!important;border-bottom:1px solid rgba(0,0,0,.08)!important}
+[data-theme=light] .form-control,[data-theme=light] .form-select{background:#FFFFFF!important;border-color:rgba(0,0,0,.2)!important;color:#1A2535!important}
+[data-theme=light] .form-select option,[data-theme=light] .form-control option,[data-theme=light] select option{background:#FFFFFF!important;color:#1A2535!important}
+[data-theme=light] .btn-dk{background:#E2EAF0!important;border-color:rgba(0,0,0,.15)!important;color:#1A2535!important}
+[data-theme=light] .mw *{color:var(--t)}
+[data-theme=light] .mw small,[data-theme=light] .mw .text-muted{color:var(--t2)!important}
+[data-theme=light] #themeBtn{color:#d4900a}
+/* Safety: kill any stale mobile nav HTML */
+nav#mobileBottomNav{display:none}
+@media(max-width:768px){nav#mobileBottomNav{display:flex!important}}
+/* Global text visibility */
+body{color:var(--t)!important;background:var(--bg)!important}
+.mw *{color:var(--t)}
+.mw small,.mw .text-muted,.mw .text-secondary{color:var(--t2)!important}
 </style>
 <?php if(isset($xhead)) echo $xhead; ?>
+<script>
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme',t==='light'?'light':'');
+  var btn=document.getElementById('themeBtn');
+  if(btn){btn.innerHTML=t==='light'?'&#9790;':'&#9728;';btn.title=t==='light'?'Modo oscuro':'Modo claro';}
+  localStorage.setItem('dentsys_theme',t);
+}
+function toggleTheme(){
+  var cur=localStorage.getItem('dentsys_theme')||'dark';
+  applyTheme(cur==='dark'?'light':'dark');
+}
+document.addEventListener('DOMContentLoaded',function(){
+  var t=localStorage.getItem('dentsys_theme')||'dark';
+  var btn=document.getElementById('themeBtn');
+  if(btn){btn.innerHTML=t==='light'?'&#9790;':'&#9728;';}
+});
+</script>
 </head>
 <body>
 <div class="sb-ov" id="sbOv" onclick="sbT()"></div>
@@ -294,12 +334,16 @@ a:not([class]){color:var(--c)}
   <?php if(puedeVer('pacientes')): ?><a href="<?=BASE_URL?>/pages/pacientes.php" class="<?=$p==='pac'?'act':''?>"><i class="bi bi-people-fill"></i>Pacientes</a><?php endif; ?>
   <?php if(puedeVer('citas')): ?><a href="<?=BASE_URL?>/pages/citas.php" class="<?=$p==='citas'?'act':''?>"><i class="bi bi-calendar2-week-fill"></i>Agenda / Citas</a><?php endif; ?>
   <?php if(puedeVer('historia_clinica')): ?><a href="<?=BASE_URL?>/pages/historia_clinica.php" class="<?=$p==='hc'?'act':''?>"><i class="bi bi-file-medical-fill"></i>Historia Clínica</a><?php endif; ?>
-  <?php if(puedeVer('odontograma')): ?><a href="<?=BASE_URL?>/pages/odontograma.php" class="<?=$p==='odont'?'act':''?>"><i class="bi bi-grid-3x3-gap-fill"></i>Odontograma</a><?php endif; ?>
+  <?php if(puedeVer('odontograma')): ?><a href="<?=BASE_URL?>/pages/odontograma_lista.php" class="<?=$p==='odont'?'act':''?>"><i class="bi bi-grid-3x3-gap-fill"></i>Odontograma</a><?php endif; ?>
+  <?php if(puedeVer('cefalometria')): ?><a href="<?=BASE_URL?>/pages/cefalometria.php" class="<?=$p==='cefalo'?'act':''?>"><i class="bi bi-rulers"></i>Cefalometría</a><?php endif; ?>
+  <?php if(puedeVer('endodoncia')): ?><a href="<?=BASE_URL?>/pages/endodoncia.php" class="<?=$p==='endo'?'act':''?>"><i class="bi"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 1.6c-1 0-1.5.45-2.6.45S3.55 1.6 2.7 2.1C1.45 2.85 1.05 4.3 1.05 5.75c0 1.5.45 2.75.9 4.2.3 1 .4 2.05.65 3.05.2.78.42 1.65 1.12 1.85.78.22 1.05-.85 1.18-1.55.2-.95.28-2 .58-2.85.1-.35.28-.75.85-.75s.75.4.85.75c.3.85.38 1.9.58 2.85.13.7.4 1.77 1.18 1.55.7-.2.92-1.07 1.12-1.85.25-1 .35-2.05.65-3.05.45-1.45.9-2.7.9-4.2 0-1.45-.4-2.9-1.65-3.65C12.6 1.6 11.7 2.05 10.6 2.05S9 1.6 8 1.6z"/></svg></i>Endodoncia</a><?php endif; ?>
+  <?php if(puedeVer('google_calendar')): ?><a href="<?=BASE_URL?>/pages/google_calendar.php" class="<?=$p==='gcal'?'act':''?>"><i class="bi bi-google"></i>Google Calendar</a><?php endif; ?>
   <?php endif; ?>
 
   <?php if(puedeVer('tratamientos')||puedeVer('facturacion')||puedeVer('inventario')||puedeVer('notificaciones')||puedeVer('turnos')): ?>
   <div class="sb-sec">Clínica</div>
   <?php if(puedeVer('tratamientos')): ?><a href="<?=BASE_URL?>/pages/tratamientos.php" class="<?=$p==='trat'?'act':''?>"><i class="bi bi-clipboard2-pulse-fill"></i>Tratamientos</a><?php endif; ?>
+  <?php if(puedeVer('presupuestos')): ?><a href="<?=BASE_URL?>/pages/presupuestos.php" class="<?=$p==='presup'?'act':''?>"><i class="bi bi-receipt"></i>Presupuestos</a><?php endif; ?>
   <?php if(puedeVer('facturacion')): ?><a href="<?=BASE_URL?>/pages/facturacion.php" class="<?=$p==='fact'?'act':''?>"><i class="bi bi-cash-coin"></i>Facturación</a><?php endif; ?>
   <?php if(puedeVer('inventario')): ?>
   <a href="<?=BASE_URL?>/pages/inventario.php" class="<?=$p==='inv'?'act':''?>">
@@ -323,6 +367,7 @@ a:not([class]){color:var(--c)}
   <a href="<?=BASE_URL?>/pages/admin/usuarios.php" class="<?=$p==='usr'?'act':''?>"><i class="bi bi-person-badge-fill"></i>Usuarios / Roles</a>
   <a href="<?=BASE_URL?>/pages/admin/roles.php" class="<?=$p==='roles'?'act':''?>"><i class="bi bi-shield-lock-fill"></i>Permisos por Rol</a>
   <a href="<?=BASE_URL?>/pages/admin/configuracion.php" class="<?=$p==='cfg'?'act':''?>"><i class="bi bi-gear-fill"></i>Configuración</a>
+  <a href="<?=BASE_URL?>/pages/admin/satisfaccion.php" class="<?=$p==='satisf'?'act':''?>"><i class="bi bi-star-fill"></i>Satisfacción</a>
   <a href="<?=BASE_URL?>/pages/admin/auditoria.php" class="<?=$p==='audit'?'act':''?>"><i class="bi bi-shield-check-fill"></i>Auditoría SIHCE</a>
   <?php endif; ?>
  </div>
@@ -345,6 +390,7 @@ a:not([class]){color:var(--c)}
    <?php
    try{$ch=db()->query("SELECT COUNT(*) FROM citas WHERE fecha=CURDATE() AND estado='pendiente'")->fetchColumn();
    if($ch>0) echo "<a href='".BASE_URL."/pages/citas.php' class='badge ba' style='text-decoration:none;font-size:11px'>📅 $ch cita".($ch>1?'s':'')." pendiente".($ch>1?'s':'')."</a>";}catch(Exception $e){}
+   echo '<button onclick="toggleTheme()" id="themeBtn" class="btn btn-dk btn-ico" title="Modo claro/oscuro" style="font-size:17px">☀️</button> ';
    if(isset($topbar_act)) echo $topbar_act;
    ?>
   </div>

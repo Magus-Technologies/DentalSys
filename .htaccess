@@ -1,8 +1,14 @@
+# DentalSys Security
 Options -Indexes
-DirectoryIndex index.php login.php
-# Security headers
+
+# Block direct access to sensitive files
+<FilesMatch "\.(sql|log|env|sh|git)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Security headers (if mod_headers available)
 <IfModule mod_headers.c>
-    Header always set X-Content-Type-Options nosniff
-    Header always set X-Frame-Options SAMEORIGIN
-    Header always set X-XSS-Protection "1; mode=block"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-Content-Type-Options "nosniff"
 </IfModule>

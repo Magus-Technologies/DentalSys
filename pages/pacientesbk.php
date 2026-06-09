@@ -28,38 +28,16 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
    flash('ok',"Paciente registrado. Código: $cod"); go("pages/pacientes.php?accion=ver&id=$nid");
   }
  }
- if($ap==='desactivar'){
-  $did=(int)($_POST['id']??0);
-  if($did){ db()->prepare("UPDATE pacientes SET activo=0,deleted_at=NOW(),deleted_by=?,updated_at=NOW() WHERE id=?")->execute([$_SESSION['uid'],$did]); auditar('DESACTIVAR_PAC','pacientes',$did); flash('ok','Paciente desactivado correctamente.'); }
-  go('pages/pacientes.php');
- }
- if($ap==='restaurar'){
-  $rid=(int)($_POST['id']??0);
-  if($rid){ db()->prepare("UPDATE pacientes SET activo=1,deleted_at=NULL,deleted_by=NULL,updated_at=NOW() WHERE id=?")->execute([$rid]); auditar('RESTAURAR_PAC','pacientes',$rid); flash('ok','Paciente restaurado correctamente.'); }
-  go('pages/pacientes.php');
- }
- if($ap==='portal_token'){
-  $tid=(int)($_POST['id']??0);
-  if($tid){
-   $tok=bin2hex(random_bytes(20)); // 40 hex
-   db()->prepare("UPDATE pacientes SET portal_token=?,portal_token_at=NOW() WHERE id=?")->execute([$tok,$tid]);
-   auditar('PORTAL_TOKEN','pacientes',$tid);
-   flash('ok','Enlace del portal generado.');
-  }
-  go("pages/pacientes.php?accion=ver&id=$tid");
- }
 }
 
 if($accion==='lista'){
  $titulo='Pacientes'; $pagina_activa='pac';
  $q=trim($_GET['q']??''); $pg=max(1,(int)($_GET['p']??1)); $pp=20;
- $orden=(($_GET['orden']??'asc')==='desc')?'desc':'asc';
- $mostrar_inactivos=isset($_GET['inactivos']);
- $w=$mostrar_inactivos?'WHERE activo=0':'WHERE activo=1'; $pm=[];
+ $w='WHERE activo=1'; $pm=[];
  if($q){$w.=' AND(nombres LIKE ? OR apellido_paterno LIKE ? OR dni LIKE ? OR telefono LIKE ? OR codigo LIKE ?)';$b="%$q%";$pm=[$b,$b,$b,$b,$b];}
  $st=db()->prepare("SELECT COUNT(*) FROM pacientes $w"); $st->execute($pm); $tot=(int)$st->fetchColumn();
  $pages=max(1,ceil($tot/$pp)); $pg=min($pg,$pages); $off=($pg-1)*$pp;
- $st2=db()->prepare("SELECT * FROM pacientes $w ORDER BY CAST(REGEXP_REPLACE(codigo,'[^0-9]','') AS UNSIGNED) $orden, id $orden LIMIT $pp OFFSET $off");
+ $st2=db()->prepare("SELECT * FROM pacientes $w ORDER BY apellido_paterno LIMIT $pp OFFSET $off");
  $st2->execute($pm); $lista=$st2->fetchAll();
  $topbar_act='<a href="?accion=nuevo" class="btn btn-primary"><i class="bi bi-person-plus me-1"></i>Nuevo paciente</a>';
  require_once __DIR__.'/../includes/header.php';
@@ -68,30 +46,13 @@ if($accion==='lista'){
  <form method="GET" class="d-flex gap-2 flex-wrap align-items-end row-gap-2">
   <div class="flex-fill" style="min-width:180px"><label class="form-label">Buscar</label>
   <input type="text" name="q" class="form-control" placeholder="Nombre, DNI, código, teléfono..." value="<?=e($q)?>"></div>
-  <input type="hidden" name="orden" value="<?=e($orden)?>">
   <div class="d-flex gap-2 align-items-end pt-1">
    <button type="submit" class="btn btn-dk">🔍</button>
-   <?php if($q): ?><a href="?orden=<?=e($orden)?>" class="btn btn-dk">✕</a><?php endif; ?>
-   <?php $flip=$orden==='asc'?'desc':'asc'; $qsOrden=http_build_query(array_filter(['q'=>$q,'inactivos'=>$mostrar_inactivos?1:null,'orden'=>$flip], fn($v)=>$v!==null&&$v!=='')); ?>
-   <a href="?<?=$qsOrden?>" class="btn btn-dk btn-sm" title="Cambiar orden por código">
-     <i class="bi bi-sort-numeric-<?=$orden==='asc'?'down':'up-alt'?> me-1"></i><?=$orden==='asc'?'Código: 1 → último':'Código: último → 1'?>
-   </a>
+   <?php if($q): ?><a href="?" class="btn btn-dk">✕</a><?php endif; ?>
   </div>
   <small class="ms-auto mt-2" style="color:var(--t2)"><?=$tot?> paciente<?=$tot!=1?'s':''?></small>
-  <div class="ms-2 mt-2">
-  <?php if(!$mostrar_inactivos): ?>
-   <a href="?<?=http_build_query(array_filter(['q'=>$q,'orden'=>$orden,'inactivos'=>1], fn($v)=>$v!==null&&$v!==''))?>" class="btn btn-dk btn-sm" style="font-size:10px" title="Ver desactivados"><i class="bi bi-person-dash me-1"></i>Ver desactivados</a>
-  <?php else: ?>
-   <a href="?<?=http_build_query(array_filter(['q'=>$q,'orden'=>$orden], fn($v)=>$v!==null&&$v!==''))?>" class="btn btn-primary btn-sm" style="font-size:10px"><i class="bi bi-person-check me-1"></i>Ver activos</a>
-  <?php endif; ?>
-  </div>
  </form>
 </div>
-<?php if($mostrar_inactivos): ?>
-<div class="alert" style="background:rgba(224,82,82,.1);border:1px solid rgba(224,82,82,.25);color:var(--r);border-radius:8px;padding:10px 14px;font-size:12px;margin-bottom:12px">
- <i class="bi bi-person-dash-fill me-2"></i><strong>Mostrando pacientes desactivados.</strong> Los datos se conservan en la BD. Puedes restaurarlos.
-</div>
-<?php endif; ?>
 <div class="card">
  <div class="table-responsive"><table class="table mb-0">
   <thead><tr><th>Código</th><th>Paciente</th><th class="d-none d-md-table-cell">DNI</th><th class="d-none d-sm-table-cell">Teléfono</th><th class="d-none d-lg-table-cell">Seguro</th><th class="d-none d-lg-table-cell">Edad</th><th></th></tr></thead>
@@ -114,29 +75,17 @@ if($accion==='lista'){
    <td><?=$p['fecha_nacimiento']?edad($p['fecha_nacimiento']):'—'?></td>
    <td><div class="d-flex gap-1">
     <a href="?accion=ver&id=<?=$p['id']?>" class="btn btn-dk btn-ico"><i class="bi bi-eye"></i></a>
-    <a href="<?=BASE_URL?>/pages/historia_clinica.php?paciente_id=<?=$p['id']?>" class="btn btn-ico" style="background:rgba(0,212,238,.14);border:1px solid rgba(0,212,238,.55);color:#22d3ee" title="HC"><i class="bi bi-file-medical-fill"></i></a>
-    <a href="<?=BASE_URL?>/pages/recetarios.php?paciente_id=<?=$p['id']?>" class="btn btn-ico" style="background:rgba(236,72,153,.14);border:1px solid rgba(236,72,153,.55);color:#f472b6" title="Recetas"><i class="bi bi-prescription2"></i></a>
-    <a href="<?=BASE_URL?>/pages/ortodoncias.php?paciente_id=<?=$p['id']?>" class="btn btn-ico" style="background:rgba(6,182,212,.14);border:1px solid rgba(6,182,212,.55);color:#22d3ee" title="Ortodoncia"><i class="bi bi-grid-3x2-gap"></i></a>
-    <a href="<?=BASE_URL?>/pages/destartraje.php?paciente_id=<?=$p['id']?>" class="btn btn-ico" style="background:rgba(16,185,129,.14);border:1px solid rgba(16,185,129,.55);color:#34d399" title="Destartraje"><i class="bi bi-droplet-fill"></i></a>
-    <a href="<?=BASE_URL?>/pages/curaciones.php?paciente_id=<?=$p['id']?>" class="btn btn-ico" style="background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.55);color:#fbbf24" title="Curaciones"><i class="bi bi-bandaid-fill"></i></a>
-    <a href="<?=BASE_URL?>/pages/protesis_fija.php?paciente_id=<?=$p['id']?>" class="btn btn-ico" style="background:rgba(139,92,246,.14);border:1px solid rgba(139,92,246,.55);color:#a78bfa" title="Prótesis Fija"><i class="bi bi-gem"></i></a>
-    <a href="<?=BASE_URL?>/pages/endodoncia.php?paciente_id=<?=$p['id']?>" class="btn btn-ico" style="background:rgba(239,68,68,.16);border:1px solid rgba(239,68,68,.6);color:#f87171" title="Ficha Endodóntica"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.6c-1 0-1.5.45-2.6.45S3.55 1.6 2.7 2.1C1.45 2.85 1.05 4.3 1.05 5.75c0 1.5.45 2.75.9 4.2.3 1 .4 2.05.65 3.05.2.78.42 1.65 1.12 1.85.78.22 1.05-.85 1.18-1.55.2-.95.28-2 .58-2.85.1-.35.28-.75.85-.75s.75.4.85.75c.3.85.38 1.9.58 2.85.13.7.4 1.77 1.18 1.55.7-.2.92-1.07 1.12-1.85.25-1 .35-2.05.65-3.05.45-1.45.9-2.7.9-4.2 0-1.45-.4-2.9-1.65-3.65C12.6 1.6 11.7 2.05 10.6 2.05S9 1.6 8 1.6z"/></svg></a>
+    <a href="<?=BASE_URL?>/pages/historia_clinica.php?paciente_id=<?=$p['id']?>" class="btn btn-ico bc" style="border:1px solid rgba(0,212,238,.3)" title="HC"><i class="bi bi-file-medical-fill"></i></a>
+    <a href="<?=BASE_URL?>/pages/recetarios.php?paciente_id=<?=$p['id']?>" class="btn btn-ico" style="border:1px solid rgba(236,72,153,.3);color:#ec4899" title="Recetas"><i class="bi bi-prescription2"></i></a>
+    <a href="<?=BASE_URL?>/pages/ortodoncias.php?paciente_id=<?=$p['id']?>" class="btn btn-ico" style="border:1px solid rgba(6,182,212,.3);color:#06B6D4" title="Ortodoncia"><i class="bi bi-grid-3x2-gap"></i></a>
+    <a href="<?=BASE_URL?>/pages/destartraje.php?paciente_id=<?=$p['id']?>" class="btn btn-ico" style="border:1px solid rgba(16,185,129,.3);color:#10b981" title="Destartraje"><i class="bi bi-droplet-fill"></i></a>
+    <a href="<?=BASE_URL?>/pages/curaciones.php?paciente_id=<?=$p['id']?>" class="btn btn-ico" style="border:1px solid rgba(245,158,11,.3);color:#f59e0b" title="Curaciones"><i class="bi bi-bandaid-fill"></i></a>
+    <a href="<?=BASE_URL?>/pages/protesis_fija.php?paciente_id=<?=$p['id']?>" class="btn btn-ico" style="border:1px solid rgba(139,92,246,.3);color:#8b5cf6" title="Prótesis Fija"><i class="bi bi-gem"></i></a>
     <a href="<?=BASE_URL?>/pages/citas.php?accion=nueva&paciente_id=<?=$p['id']?>" class="btn btn-ico btn-ok" title="Agendar"><i class="bi bi-calendar-plus"></i></a>
-    <?php if(!$mostrar_inactivos): ?>
-    <form method="POST" class="d-inline" onsubmit="return confirm('\u00bfDesactivar paciente? Los datos se conservan en la BD.')">
-     <input type="hidden" name="accion" value="desactivar"><input type="hidden" name="id" value="<?=$p['id']?>">
-     <button type="submit" class="btn btn-del btn-ico" title="Desactivar"><i class="bi bi-person-dash-fill"></i></button>
-    </form>
-    <?php else: ?>
-    <form method="POST" class="d-inline">
-     <input type="hidden" name="accion" value="restaurar"><input type="hidden" name="id" value="<?=$p['id']?>">
-     <button type="submit" class="btn btn-ok btn-ico" title="Restaurar paciente"><i class="bi bi-person-check-fill"></i></button>
-    </form>
-    <?php endif; ?>
    </div></td>
   </tr>
   <?php endforeach; if(!$lista): ?>
-  <tr><td colspan="8" class="text-center py-4" style="color:var(--t2)"><i class="bi bi-people" style="font-size:36px;display:block;margin-bottom:8px"></i>No se encontraron pacientes</td></tr>
+  <tr><td colspan="7" class="text-center py-4" style="color:var(--t2)"><i class="bi bi-people" style="font-size:36px;display:block;margin-bottom:8px"></i>No se encontraron pacientes</td></tr>
   <?php endif; ?>
   </tbody>
  </table></div>
@@ -144,15 +93,15 @@ if($accion==='lista'){
 <?php if($pages>1): ?>
 <nav class="mt-3 d-flex justify-content-end"><ul class="pagination pagination-sm">
  <?php for($i=1;$i<=$pages;$i++): ?>
- <li class="page-item <?=$i===$pg?'active':''?>"><a class="page-link" href="?<?=http_build_query(array_filter(['q'=>$q,'orden'=>$orden,'inactivos'=>$mostrar_inactivos?1:null,'p'=>$i], fn($v)=>$v!==null&&$v!==''))?>"><?=$i?></a></li>
+ <li class="page-item <?=$i===$pg?'active':''?>"><a class="page-link" href="?q=<?=urlencode($q)?>&p=<?=$i?>"><?=$i?></a></li>
  <?php endfor; ?>
 </ul></nav>
 <?php endif;
  require_once __DIR__.'/../includes/footer.php';
 
-}elseif($accion==='ver'){
+}elseif($accion==='ver'&&$id){
  $st=db()->prepare("SELECT * FROM pacientes WHERE id=?"); $st->execute([$id]); $pac=$st->fetch();
- if(!$id || !$pac){flash('error','Paciente no encontrado.');go('pages/pacientes.php');}
+ if(!$pac){flash('error','No encontrado');go('pages/pacientes.php');}
  $hcs=db()->prepare("SELECT hc.*,CONCAT(u.nombre,' ',u.apellidos) AS dr FROM historias_clinicas hc LEFT JOIN usuarios u ON hc.doctor_id=u.id WHERE hc.paciente_id=? ORDER BY hc.fecha_apertura DESC"); $hcs->execute([$id]); $hcs=$hcs->fetchAll();
  $cit=db()->prepare("SELECT c.*,CONCAT(u.nombre,' ',u.apellidos) AS dr FROM citas c JOIN usuarios u ON c.doctor_id=u.id WHERE c.paciente_id=? ORDER BY c.fecha DESC LIMIT 8"); $cit->execute([$id]); $cit=$cit->fetchAll();
  $pags=db()->prepare("SELECT * FROM pagos WHERE paciente_id=? ORDER BY fecha DESC LIMIT 6"); $pags->execute([$id]); $pags=$pags->fetchAll();
@@ -377,8 +326,6 @@ if($accion==='lista'){
      <a href="<?=BASE_URL?>/pages/destartraje.php?paciente_id=<?=$id?>" class="btn btn-dk btn-sm" style="border-color:rgba(16,185,129,.3);color:#10b981"><i class="bi bi-droplet-fill me-1"></i>Destartraje</a>
      <a href="<?=BASE_URL?>/pages/curaciones.php?paciente_id=<?=$id?>" class="btn btn-dk btn-sm" style="border-color:rgba(245,158,11,.3);color:#f59e0b"><i class="bi bi-bandaid-fill me-1"></i>Curaciones</a>
      <a href="<?=BASE_URL?>/pages/protesis_fija.php?paciente_id=<?=$id?>" class="btn btn-dk btn-sm" style="border-color:rgba(139,92,246,.3);color:#8b5cf6"><i class="bi bi-gem me-1"></i>Prótesis Fija</a>
-     <?php if(puedeVer('endodoncia')): ?><a href="<?=BASE_URL?>/pages/endodoncia.php?paciente_id=<?=$id?>" class="btn btn-dk btn-sm" style="border-color:rgba(239,68,68,.3);color:#ef4444"><i class="bi bi-heart-pulse-fill me-1"></i>Endodoncia</a><?php endif; ?>
-     <?php if(puedeVer('presupuestos')): ?><a href="<?=BASE_URL?>/pages/presupuestos.php?paciente_id=<?=$id?>" class="btn btn-dk btn-sm" style="border-color:rgba(0,212,238,.3);color:var(--c)"><i class="bi bi-receipt me-1"></i>Presupuesto</a><?php endif; ?>
      <a href="<?=BASE_URL?>/pages/citas.php?accion=nueva&paciente_id=<?=$id?>" class="btn btn-dk btn-sm"><i class="bi bi-calendar-plus me-1"></i>Nueva Cita</a>
      <a href="<?=BASE_URL?>/pages/pagos.php?accion=nuevo&paciente_id=<?=$id?>" class="btn btn-dk btn-sm"><i class="bi bi-cash me-1"></i>Registrar Pago</a>
      <?php if($pac['telefono']): ?>
@@ -398,38 +345,6 @@ if($accion==='lista'){
       <div style="margin-top:4px;color:var(--t)"><?=e(substr($ultima_hc['motivo_consulta'],0,60))?><?=strlen($ultima_hc['motivo_consulta'])>60?'...':''?></div>
      </div>
     </div>
-    <?php endif; ?>
-   </div>
-  </div>
- </div>
-
- <!-- Portal del paciente (fila completa) -->
- <div class="col-12">
-  <?php // ── Portal del paciente ──
-    $portalUrl = !empty($pac['portal_token']) ? rtrim((isset($_SERVER['HTTPS'])&&$_SERVER['HTTPS']!=='off'?'https':'http').'://'.$_SERVER['HTTP_HOST'].BASE_URL,'/').'/portal.php?t='.$pac['portal_token'] : '';
-    $nomCli = empresa('nombre_comercial') ?: getCfg('clinica_nombre','la clínica');
-  ?>
-  <div class="card mt-3" style="border:1px solid rgba(0,212,238,.25)">
-   <div class="card-header d-flex align-items-center justify-content-between">
-    <span style="font-weight:600"><i class="bi bi-phone me-1" style="color:var(--c)"></i>Portal del paciente</span>
-    <form method="POST" onsubmit="return confirm('<?=!empty($pac['portal_token'])?'Generar un NUEVO enlace invalidará el anterior. ¿Continuar?':'¿Generar enlace de acceso para este paciente?'?>')">
-     <input type="hidden" name="accion" value="portal_token"><input type="hidden" name="id" value="<?=$id?>">
-     <button class="btn btn-dk btn-sm"><i class="bi bi-<?=!empty($pac['portal_token'])?'arrow-repeat':'link-45deg'?> me-1"></i><?=!empty($pac['portal_token'])?'Regenerar':'Generar enlace'?></button>
-    </form>
-   </div>
-   <div class="p-3">
-    <?php if($portalUrl): ?>
-     <p style="color:var(--t2);font-size:12px;margin-bottom:8px">Comparte este enlace para que el paciente vea sus citas, recetas, presupuestos, pagos y la evolución de su tratamiento.</p>
-     <div class="d-flex gap-2 flex-wrap align-items-center">
-      <input type="text" id="portalUrl" class="form-control form-control-sm" style="flex:1;min-width:220px" value="<?=e($portalUrl)?>" readonly onclick="this.select()">
-      <button type="button" class="btn btn-primary btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('portalUrl').value);this.innerHTML='<i class=\'bi bi-check2\'></i> Copiado'"><i class="bi bi-clipboard me-1"></i>Copiar</button>
-      <?php $waTxt=rawurlencode("Hola ".$pac['nombres'].", este es tu acceso al portal de ".$nomCli.":\n".$portalUrl); $waTel=preg_replace('/[^0-9]/','',$pac['telefono']??''); ?>
-      <a class="btn btn-sm" style="background:#25D366;color:#fff" target="_blank" href="https://wa.me/<?=$waTel?>?text=<?=$waTxt?>"><i class="bi bi-whatsapp me-1"></i>WhatsApp</a>
-      <a class="btn btn-dk btn-sm" target="_blank" href="<?=e($portalUrl)?>"><i class="bi bi-box-arrow-up-right me-1"></i>Abrir</a>
-     </div>
-     <?php if(!empty($pac['portal_token_at'])): ?><div style="color:var(--t3);font-size:11px;margin-top:8px">Enlace generado: <?=fDate($pac['portal_token_at'])?></div><?php endif; ?>
-    <?php else: ?>
-     <p style="color:var(--t2);font-size:13px;margin:0">Este paciente aún no tiene acceso al portal. Genera un enlace para compartirlo.</p>
     <?php endif; ?>
    </div>
   </div>
