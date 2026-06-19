@@ -352,7 +352,6 @@ document.addEventListener('DOMContentLoaded',function(){
   </a>
   <?php endif; ?>
   <?php if(puedeVer('notificaciones')): ?><a href="<?=BASE_URL?>/pages/notificaciones.php" class="<?=$p==='notif'?'act':''?>"><i class="bi bi-whatsapp"></i>WhatsApp / Notif.</a><?php endif; ?>
-  <?php if(puedeVer('notificaciones')): ?><a href="<?=BASE_URL?>/pages/whatsapp_conexion.php" class="<?=$p==='wacon'?'act':''?>"><i class="bi bi-link-45deg"></i>Conexión WhatsApp</a><?php endif; ?>
   <?php if(puedeVer('turnos')): ?><a href="<?=BASE_URL?>/pages/turnos.php" class="<?=$p==='turnos'?'act':''?>"><i class="bi bi-display"></i>Pantalla Turnos</a><?php endif; ?>
   <?php endif; ?>
 
