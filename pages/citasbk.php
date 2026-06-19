@@ -1,5 +1,14 @@
 <?php
 require_once __DIR__.'/../includes/config.php';
+// Google Calendar - load only if available and table exists
+define('GC_AVAILABLE', file_exists(__DIR__.'/../includes/GoogleCalendarService.php') && 
+    (function(){ try{
+        db()->query('SELECT 1 FROM google_calendar_tokens LIMIT 1');
+        // Also ensure google_event_id column exists
+        db()->query('SELECT google_event_id FROM citas LIMIT 1');
+        return true;
+    }catch(Exception $e){ return false; } })());
+if(GC_AVAILABLE) require_once __DIR__.'/../includes/GoogleCalendarService.php';
 requiereLogin();
 $accion=$_GET['accion']??'calendario'; $id=(int)($_GET['id']??0);
 
@@ -8,11 +17,30 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
  if($ap==='guardar'){
   $ei=(int)($_POST['id']??0);
   $d=['paciente_id'=>(int)$_POST['paciente_id'],'doctor_id'=>(int)$_POST['doctor_id'],'sillon_id'=>$_POST['sillon_id']?:null,'fecha'=>$_POST['fecha'],'hora_inicio'=>$_POST['hora_inicio'],'hora_fin'=>$_POST['hora_fin'],'tipo'=>$_POST['tipo']??'primera_vez','especialidad'=>trim($_POST['especialidad']??''),'motivo'=>trim($_POST['motivo']??''),'notas'=>trim($_POST['notas']??'')];
-  if($ei){$sets=implode(',',array_map(fn($k)=>"$k=?",array_keys($d)));db()->prepare("UPDATE citas SET $sets,updated_at=NOW() WHERE id=?")->execute([...array_values($d),$ei]);flash('ok','Cita actualizada.');go("pages/citas.php?accion=ver&id=$ei");}
+  if($ei){$sets=implode(',',array_map(fn($k)=>"$k=?",array_keys($d)));db()->prepare("UPDATE citas SET $sets,updated_at=NOW() WHERE id=?")->execute([...array_values($d),$ei]);
+  // Auto-sync update to Google Calendar
+  if(GC_AVAILABLE) try{
+    $gc_svc2=new GoogleCalendarService((int)($_POST['doctor_id']?:$_SESSION['uid']));
+    if($gc_svc2->isConnected()){
+      $gc_cita2=db()->prepare("SELECT c.*,CONCAT(p.nombres,' ',p.apellido_paterno) AS pac FROM citas c JOIN pacientes p ON c.paciente_id=p.id WHERE c.id=?");
+      $gc_cita2->execute([$ei]); $gc_cita2=$gc_cita2->fetch();
+      if($gc_cita2) $gc_svc2->updateEvent($gc_cita2);
+    }
+  }catch(Exception $e){}
+  flash('ok','Cita actualizada.');go("pages/citas.php?accion=ver&id=$ei");}
   else{$cod=genCodigo('CIT','citas');$d['codigo']=$cod;$d['estado']='pendiente';$d['created_by']=$_SESSION['uid'];
   $cols=implode(',',array_keys($d));$phs=implode(',',array_fill(0,count($d),'?'));
   db()->prepare("INSERT INTO citas($cols)VALUES($phs)")->execute(array_values($d));
   $nid=db()->lastInsertId(); auditar('CREAR_CITA','citas',$nid);
+  // Auto-sync to Google Calendar
+  if(GC_AVAILABLE) try{
+    $gc_svc=new GoogleCalendarService((int)($_POST['doctor_id']?:$_SESSION['uid']));
+    if($gc_svc->isConnected()){
+      $gc_cita=db()->prepare("SELECT c.*,CONCAT(p.nombres,' ',p.apellido_paterno) AS pac FROM citas c JOIN pacientes p ON c.paciente_id=p.id WHERE c.id=?");
+      $gc_cita->execute([$nid]); $gc_cita=$gc_cita->fetch();
+      if($gc_cita) $gc_svc->createEvent($gc_cita);
+    }
+  }catch(Exception $e){}
   // registrar turno
   try{$nt=db()->query("SELECT COALESCE(MAX(numero),0)+1 FROM turnos WHERE DATE(created_at)=CURDATE()")->fetchColumn();
   $st_pac=db()->prepare("SELECT CONCAT(nombres,' ',apellido_paterno) FROM pacientes WHERE id=?"); $st_pac->execute([(int)$_POST['paciente_id']]); $nm_pac=$st_pac->fetchColumn();
@@ -22,6 +50,12 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
  if($ap==='estado'){
   $cid=(int)$_POST['cid']; $est=$_POST['est'];
   db()->prepare("UPDATE citas SET estado=?,updated_at=NOW() WHERE id=?")->execute([$est,$cid]);
+  if(GC_AVAILABLE) try{
+    $gc_ec=db()->prepare("SELECT c.*,CONCAT(p.nombres,' ',p.apellido_paterno) AS pac FROM citas c JOIN pacientes p ON c.paciente_id=p.id WHERE c.id=?");
+    $gc_ec->execute([$cid]); $gc_ec=$gc_ec->fetch();
+    if($gc_ec){$gc_s3=new GoogleCalendarService((int)$gc_ec['doctor_id']);
+    if($gc_s3->isConnected()){if(in_array($est,['cancelado','no_asistio']))$gc_s3->deleteEvent($gc_ec);else $gc_s3->updateEvent($gc_ec);}}
+  }catch(Exception $e){}
   if($est==='en_atencion'){try{db()->prepare("UPDATE turnos SET estado='en_atencion' WHERE cita_id=?")->execute([$cid]);}catch(Exception $e){}}
   if($est==='atendido'){try{db()->prepare("UPDATE turnos SET estado='atendido' WHERE cita_id=?")->execute([$cid]);}catch(Exception $e){}}
   auditar('ESTADO_CITA','citas',$cid,$est); flash('ok','Estado actualizado.'); go("pages/citas.php?accion=ver&id=$cid");
@@ -33,6 +67,23 @@ $sills=db()->query("SELECT * FROM sillones WHERE activo=1 ORDER BY numero")->fet
 $pacs_sel=db()->query("SELECT id,codigo,nombres,apellido_paterno,telefono FROM pacientes WHERE activo=1 ORDER BY apellido_paterno LIMIT 500")->fetchAll();
 $ec=['pendiente'=>'ba','confirmado'=>'bc','en_atencion'=>'bb','atendido'=>'bg','no_asistio'=>'br','cancelado'=>'bgr'];
 $el=['pendiente'=>'Pendiente','confirmado'=>'Confirmado','en_atencion'=>'En atención','atendido'=>'Atendido','no_asistio'=>'No asistió','cancelado'=>'Cancelado'];
+
+// Eliminar cita
+if($_SERVER['REQUEST_METHOD']==='POST'&&($_POST['accion']??'')==='eliminar_cita'){
+ $eid=(int)($_POST['id']??0);
+ if($eid){
+  $gc_del=db()->prepare("SELECT c.*,CONCAT(p.nombres,' ',p.apellido_paterno) AS pac FROM citas c JOIN pacientes p ON c.paciente_id=p.id WHERE c.id=?");
+  $gc_del->execute([$eid]); $gc_del=$gc_del->fetch();
+  if(GC_AVAILABLE&&$gc_del&&($gc_del['google_event_id']??'')){
+   try{ $gc_d=new GoogleCalendarService((int)($gc_del['doctor_id']?:$_SESSION['uid']));
+   if($gc_d->isConnected()) $gc_d->deleteEvent($gc_del); }catch(Exception $e){}
+  }
+  db()->prepare("DELETE FROM citas WHERE id=?")->execute([$eid]);
+  auditar('ELIMINAR_CITA','citas',$eid);
+  flash('ok','Cita eliminada correctamente.');
+ }
+ go('pages/citas.php');
+}
 
 if($accion==='agenda'){
  $titulo='Agenda de Citas'; $pagina_activa='citas';
@@ -84,6 +135,11 @@ if($accion==='agenda'){
     <?php if($c['estado']==='pendiente'): ?>
     <form method="POST" class="d-inline"><input type="hidden" name="accion" value="estado"><input type="hidden" name="cid" value="<?=$c['id']?>"><input type="hidden" name="est" value="en_atencion"><button type="submit" class="btn btn-ico btn-ok" title="Iniciar"><i class="bi bi-play-fill"></i></button></form>
     <?php endif; ?>
+    <form method="POST" class="d-inline" onsubmit="return confirm('\u00bfEliminar esta cita?')">
+     <input type="hidden" name="accion" value="eliminar_cita">
+     <input type="hidden" name="id" value="<?=$c['id']?>">
+     <button type="submit" class="btn btn-del btn-ico" title="Eliminar"><i class="bi bi-trash"></i></button>
+    </form>
    </div></td>
   </tr>
   <?php endforeach; if(!$list): ?>
@@ -100,6 +156,11 @@ if($accion==='agenda'){
  if(!$cita){flash('error','Cita no encontrada');go('pages/citas.php');}
  $titulo='Cita '.$cita['codigo']; $pagina_activa='citas';
  $msg_rec=getCfg('plantilla_wa_cita'); $msg_rec=str_replace(['{nombre}','{clinica}','{fecha}','{hora}','{telefono}'],[$cita['pac'],getCfg('clinica_nombre'),fDate($cita['fecha']),substr($cita['hora_inicio'],0,5),getCfg('clinica_telefono')],$msg_rec);
+ $topbar_act='<a href="?accion=nueva&id='.$id.'" class="btn btn-dk btn-sm"><i class="bi bi-pencil me-1"></i>Editar</a>'
+  .' <form method="POST" class="d-inline" onsubmit="return confirm(\'\u00bfEliminar esta cita? Esta accion no se puede deshacer.\')">'  
+  .'<input type="hidden" name="accion" value="eliminar_cita">'
+  .'<input type="hidden" name="id" value="'.$id.'">'  
+  .'<button type="submit" class="btn btn-del btn-sm"><i class="bi bi-trash me-1"></i>Eliminar cita</button></form>';
  require_once __DIR__.'/../includes/header.php';
 ?>
 <div class="row g-4">
@@ -405,7 +466,7 @@ elseif($accion==='calendario'){
 
 <!-- CALENDARIO -->
 <div class="cal-wrap">
-<div class="cal-grid" id="calGrid" style="grid-template-columns:52px repeat(7,1fr)">
+<div class="cal-grid" id="calGrid" style="grid-template-columns:52px repeat(7,1fr);position:relative">
 
  <!-- Header row -->
  <div class="cal-corner">Hora</div>
@@ -457,6 +518,7 @@ elseif($accion==='calendario'){
  <div id="evMeta" style="font-size:11px;color:var(--t2);margin-bottom:8px"></div>
  <div class="d-flex gap-2">
   <a id="evLink" href="#" class="btn btn-primary btn-sm flex-fill">Ver cita</a>
+  <a id="evDel" href="#" class="btn btn-del btn-sm"><i class="bi bi-trash"></i></a>
   <button class="btn btn-dk btn-sm" onclick="document.getElementById('evOverlay').style.display='none'">✕</button>
  </div>
 </div>
@@ -584,7 +646,6 @@ elseif($accion==='calendario'){
             showOverlay(c, e.clientX, e.clientY);
           });
           // Position relative to gridEl (which is relative to wrap)
-          gridEl.style.position='relative';
           gridEl.appendChild(ev);
         });
       });
@@ -597,6 +658,14 @@ elseif($accion==='calendario'){
     document.getElementById('evMeta').innerHTML =
       `🕐 ${c.hi} – ${c.hf}<br>👨‍⚕️ Dr. ${c.dr}<br>📋 ${c.tipo.replace(/_/g,' ')}${c.motivo?'<br>📝 '+c.motivo:''}<br><span style="color:${c.est_color};font-weight:700">${c.est_label}</span>`;
     document.getElementById('evLink').href = '?accion=ver&id='+c.id;
+    document.getElementById('evDel').onclick = function(e){
+      e.preventDefault();
+      if(!confirm('\u00bfEliminar esta cita?')) return;
+      var f=document.createElement('form'); f.method='POST'; f.action='citas.php';
+      var a=document.createElement('input'); a.type='hidden'; a.name='accion'; a.value='eliminar_cita';
+      var b=document.createElement('input'); b.type='hidden'; b.name='id'; b.value=c.id;
+      f.appendChild(a); f.appendChild(b); document.body.appendChild(f); f.submit();
+    };
     // Position
     const vw=window.innerWidth, vh=window.innerHeight;
     let left = cx+10, top = cy+10;
@@ -610,8 +679,20 @@ elseif($accion==='calendario'){
 
   document.addEventListener('click',function(){ document.getElementById('evOverlay').style.display='none'; });
 
-  // Render on load and resize
-  renderEvents();
+  // Render after DOM is fully painted (fixes getBoundingClientRect returning 0)
+  function safeRender(){
+    // Double rAF ensures layout is complete
+    requestAnimationFrame(function(){
+      requestAnimationFrame(function(){
+        renderEvents();
+      });
+    });
+  }
+  // Initial render
+  if(document.readyState === 'complete') safeRender();
+  else window.addEventListener('load', safeRender);
+  // Also render after a short delay as extra fallback
+  setTimeout(renderEvents, 300);
   window.addEventListener('resize', renderEvents);
   wrap.addEventListener('scroll', renderEvents);
 }());
