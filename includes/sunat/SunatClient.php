@@ -22,9 +22,24 @@ class SunatClient
         return $this->post('/generar/comprobante', $payload);
     }
 
+    public function generarNota(array $payload): array
+    {
+        return $this->post('/generar/nota', $payload);
+    }
+
     public function enviarDocumento(array $payload): array
     {
         return $this->post('/enviar/documento/electronico', $payload);
+    }
+
+    public function enviarBaja(array $payload): array
+    {
+        return $this->post('/enviar/comunicacion/baja', $payload);
+    }
+
+    public function enviarResumen(array $payload): array
+    {
+        return $this->post('/enviar/resumen', $payload);
     }
 
     private function post(string $path, array $payload): array

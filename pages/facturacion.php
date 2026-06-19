@@ -360,7 +360,7 @@ if ($accion==='lista') {
       <div class="mon" style="color:var(--c);font-size:11px"><?=e($pago['codigo'])?></div>
       <?php if(isset($pago['aplica_igv'])): ?>
       <small style="color:var(--t2)">IGV</small>
-      <div><span class="badge <?=$pago['aplica_igv']?'bc':'bpu'?>"><?=$pago['aplica_igv']?'INCLUIDO (18%)':'EXONERADO / INAFECTO'?></span></div>
+      <div><span class="badge <?=$pago['aplica_igv']?'bc':'bpu'?>"><?=$pago['aplica_igv']?'INCLUIDO (18%)':'EXONERADO'?></span></div>
       <?php endif; ?>
      </div>
     </div>
@@ -393,7 +393,7 @@ if ($accion==='lista') {
       <div class="d-flex justify-content-between"><span style="color:var(--t2)">Op. Gravada</span><span class="mon"><?=mon(round((float)$pago['total']/1.18,2))?></span></div>
       <div class="d-flex justify-content-between"><span style="color:var(--t2)">IGV (18%)</span><span class="mon"><?=mon(round((float)$pago['total']-((float)$pago['total']/1.18),2))?></span></div>
       <?php else: ?>
-      <div class="d-flex justify-content-between"><span style="color:var(--t2)">Op. Inafecta/Exonerada</span><span class="mon"><?=mon((float)$pago['total'])?></span></div>
+      <div class="d-flex justify-content-between"><span style="color:var(--t2)">Op. Exonerada</span><span class="mon"><?=mon((float)$pago['total'])?></span></div>
       <?php endif; ?>
       <hr>
       <div class="d-flex justify-content-between align-items-center">
@@ -436,7 +436,7 @@ if ($accion==='lista') {
      <?php if(!empty($pago['sunat_cdr'])): ?>
       <a href="?accion=cdr&id=<?=$id?>" class="btn btn-ok btn-sm"><i class="bi bi-download me-1"></i>Descargar CDR</a>
      <?php endif; ?>
-     <?php if(empty($pago['sunat_xml']) || $se==='rechazado'): ?>
+     <?php if($se !== 'aceptado'): ?>
       <form method="POST" onsubmit="return confirm('¿Regenerar el XML?')">
        <input type="hidden" name="accion" value="regenerar"><input type="hidden" name="id" value="<?=$id?>">
        <button type="submit" class="btn btn-dk btn-sm w-100"><i class="bi bi-arrow-clockwise me-1"></i>Regenerar XML</button>
@@ -641,7 +641,7 @@ if ($accion==='lista') {
        <input type="radio" class="btn-check" name="aplica_igv" id="igvSi" value="1" checked onchange="toggleIgv()">
        <label class="btn btn-dk" for="igvSi"><i class="bi bi-check-circle me-1"></i>Sí (gravado)</label>
        <input type="radio" class="btn-check" name="aplica_igv" id="igvNo" value="0" onchange="toggleIgv()">
-       <label class="btn btn-dk" for="igvNo"><i class="bi bi-x-circle me-1"></i>No (exonerado/inafecto)</label>
+       <label class="btn btn-dk" for="igvNo"><i class="bi bi-x-circle me-1"></i>No (exonerado)</label>
       </div>
       <div id="igvInfo" class="mb-3" style="font-size:11px;padding:8px 10px;border-radius:6px;background:rgba(0,212,238,.06);border:1px solid rgba(0,212,238,.15);color:var(--t2)">
        <i class="bi bi-info-circle me-1"></i>Los precios <strong>incluyen IGV (18%)</strong>. Se desglosa automáticamente en el comprobante.
@@ -841,7 +841,7 @@ function recalc(){
     : \'<i class="bi bi-receipt me-1"></i>Los precios <strong>NO incluyen IGV</strong>. Comprobante exonerado o inafecto.\';
    if(igvInfo) igvInfo.innerHTML = si
     ? \'<i class="bi bi-info-circle me-1"></i>Los precios <strong>incluyen IGV (18%)</strong>. Se desglosa automáticamente en el comprobante.\'
-    : \'<i class="bi bi-receipt me-1"></i>Los precios <strong>NO incluyen IGV</strong>. Se emitirá como comprobante exonerado/inafecto. No hay desglose de IGV.\';
+    : \'<i class="bi bi-receipt me-1"></i>Los precios <strong>NO incluyen IGV</strong>. Se emitirá como comprobante exonerado. No hay desglose de IGV.\';
    recalc();
   };
  const labels = {

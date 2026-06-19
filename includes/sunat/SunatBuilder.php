@@ -32,6 +32,69 @@ class SunatBuilder
         ];
     }
 
+    /**
+     * @param array $nota     Row from `notas_credito`
+     * @param array $pagOrig  Row from `pagos` (the affected document)
+     * @param array $paciente Row from `pacientes`
+     * @param array $items    Rows from `pago_detalles` of the original payment
+     */
+    public static function buildNota(array $nota, array $pagOrig, array $paciente, array $items): array
+    {
+        $tipoDocAfectado = $pagOrig['tipo_comprobante'] === 'factura' ? '01' : '03';
+        $serieNumAfectado = $pagOrig['serie'] . '-' . str_pad((string)$pagOrig['numero'], 8, '0', STR_PAD_LEFT);
+        // Use the value stored in the nota at creation time — never re-derive
+        $aplica_igv = (bool)($nota['aplica_igv'] ?? (!isset($pagOrig['aplica_igv']) || $pagOrig['aplica_igv']));
+
+        return [
+            'endpoint'              => SUNAT_ENDPOINT,
+            'documento'             => $nota['tipo_nota'],
+            'empresa'               => self::empresa(),
+            'cliente'               => self::cliente($paciente, $pagOrig['tipo_comprobante']),
+            'serie'                 => $nota['serie'],
+            'numero'                => (string) $nota['numero'],
+            'fecha_emision'         => date('Y-m-d H:i:s'),
+            'moneda'                => 'PEN',
+            'serie_numero_afectado' => $serieNumAfectado,
+            'cod_motivo'            => $nota['cod_motivo'],
+            'des_motivo'            => $nota['des_motivo'],
+            'doc_afectado'          => $pagOrig['tipo_comprobante'],
+            'tipo_doc_afectado'     => $tipoDocAfectado,
+            'detalles'              => self::detalles($items, $aplica_igv),
+        ];
+    }
+
+    /**
+     * Builds a NC that references another NC (NC-of-NC correction flow).
+     * Used to cancel a wrong NC that was already accepted by SUNAT.
+     *
+     * @param array $nota       Row from `notas_credito` (the new correction NC)
+     * @param array $notaRef    Row from `notas_credito` (the wrong NC being cancelled)
+     * @param array $paciente   Row from `pacientes`
+     * @param array $items      Rows from `pago_detalles` (same items as the wrong NC)
+     */
+    public static function buildNotaDeNota(array $nota, array $notaRef, array $paciente, array $items): array
+    {
+        $serieNumAfectado = $notaRef['serie'] . '-' . str_pad((string)$notaRef['numero'], 8, '0', STR_PAD_LEFT);
+        $aplica_igv       = (bool)($notaRef['aplica_igv'] ?? false);
+
+        return [
+            'endpoint'              => SUNAT_ENDPOINT,
+            'documento'             => 'credito',
+            'empresa'               => self::empresa(),
+            'cliente'               => self::cliente($paciente, $notaRef['tipo_comprobante'] ?? 'boleta'),
+            'serie'                 => $nota['serie'],
+            'numero'                => (string) $nota['numero'],
+            'fecha_emision'         => date('Y-m-d H:i:s'),
+            'moneda'                => 'PEN',
+            'serie_numero_afectado' => $serieNumAfectado,
+            'cod_motivo'            => $nota['cod_motivo'],
+            'des_motivo'            => $nota['des_motivo'],
+            'doc_afectado'          => 'credito',
+            'tipo_doc_afectado'     => '07',
+            'detalles'              => self::detalles($items, $aplica_igv),
+        ];
+    }
+
     private static function empresa(): array
     {
         return [
@@ -89,7 +152,7 @@ class SunatBuilder
                 'descripcion'  => $it['concepto'] ?? 'Servicio dental',
                 'cantidad'     => (float) ($it['cantidad'] ?? 1),
                 'precio'       => (float) ($it['precio'] ?? 0),
-                'tipo_igv'     => $aplica_igv ? 'gravado' : 'inafecto',
+                'tipo_igv'     => $aplica_igv ? 'gravado' : 'exonerado',
             ];
         }
         return $out;
